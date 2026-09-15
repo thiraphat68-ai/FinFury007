@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ========================================== -->
+    <!-- 🎮 ของเดิมของน้อง (หน้าเมนู + หน้าเลือกด่าน) -->
+    <!-- ========================================== -->
+    <string name="app_name">Fin &amp; Fury</string>
+    <string name="game_title">FIN &amp; FURY</string>
+    <string name="btn_start">START GAME</string>
+
+    <string name="title_select_stage">SELECT STAGE</string>
+    <string name="stage_1">1</string>
+    <string name="stage_2">2</string>
+    <string name="stage_3">3</string>
+    <string name="stage_4">4</string>
+    <string name="stage_boss">BOSS</string>
+    <string name="stage_5">ด่านบอส</string>
+
+    <!-- ========================================== -->
+    <!-- 🔥 ของใหม่ที่เพิ่มต่อท้าย (หน้าเลือกตัวละคร 5 ตัว + บอกสกิล) -->
+    <!-- ========================================== -->
+    <string name="title_select_hero">SELECT YOUR HERO</string>
+    <string name="btn_fight_text">FIGHT!</string>
+
+    <!-- ฮีโร่ตัวที่ 1 -->
+    <string name="hero_1_name">Swordfish</string>
+    <string name="hero_1_type">(Fighter)</string>
+    <string name="hero_1_skills">⚔️ Aqua Slash:\nโจมตีทะลวงเกราะ\n\n💨 Swift Swim:\nเพิ่มความเร็วโจมตี</string>
+
+    <!-- ฮีโร่ตัวที่ 2 -->
+    <string name="hero_2_name">Pufferfish</string>
+    <string name="hero_2_type">(Tank)</string>
+    <string name="hero_2_skills">🧱 Spike Shield:\nสะท้อนดาเมจ 20%\n\n☣️ Toxic Puff:\nระเบิดพิษรอบตัว</string>
+
+    <!-- ฮีโร่ตัวที่ 3 -->
+    <string name="hero_3_name">Shark</string>
+    <string name="hero_3_type">(Assassin)</string>
+    <string name="hero_3_skills">🩸 Blood Scent:\nตีแรงขึ้นถ้าศัตรูเจ็บ\n\n🦈 Shadow Bite:\nหายตัวไปลอบกัดด่วน</string>
+
+    <!-- ฮีโร่ตัวที่ 4 -->
+    <string name="hero_4_name">Octopus</string>
+    <string name="hero_4_type">(Mage)</string>
+    <string name="hero_4_skills">💨 Ink Blind:\nพ่นหมึกให้ศัตรูตาบอด\n\n🕸️ Tentacle Bind:\nรัดเป้าหมายให้อยู่กับที่</string>
+
+    <!-- ฮีโร่ตัวที่ 5 -->
+    <string name="hero_5_name">Electric Eel</string>
+    <string name="hero_5_type">(Carry)</string>
+    <string name="hero_5_skills">⚡ Volt Discharge:\nช็อตสายฟ้าหมู่กระจาย\n\n🔋 Overcharge:\nบัฟโจมตีเร็วและแรงขึ้น</string>
+
+</resources>

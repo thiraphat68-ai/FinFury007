@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/battleRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0F2027">
+
+    <ImageView
+        android:id="@+id/imgBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:background="#1C2833" />
+
+    <LinearLayout
+        android:id="@+id/playerContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:id="@+id/txtPlayerName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Hero"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <ProgressBar
+            android:id="@+id/hpBarPlayer"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="70dp"
+            android:layout_height="10dp"
+            android:max="100"
+            android:progress="100"
+            android:progressTint="#00E676" />
+
+        <ImageView
+            android:id="@+id/imgPlayer"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:src="@drawable/hero_1"
+            android:scaleType="fitCenter" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/joystickBase"
+        android:layout_width="140dp"
+        android:layout_height="140dp"
+        android:layout_marginStart="32dp"
+        android:layout_marginBottom="32dp"
+        android:background="@android:color/transparent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@android:drawable/presence_online"
+            android:alpha="0.2" />
+
+        <View
+            android:id="@+id/joystickKnob"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:layout_gravity="center"
+            android:background="@android:drawable/presence_online"
+            android:alpha="0.6" />
+    </FrameLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="220dp"
+        android:layout_height="220dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageButton
+            android:id="@+id/btnAttack"
+            android:layout_width="85dp"
+            android:layout_height="85dp"
+            android:background="@drawable/hero_1"
+            android:scaleType="centerInside"
+            android:backgroundTint="#80000000"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <ImageButton
+            android:id="@+id/btnSkill1"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/hero_2"
+            android:scaleType="centerInside"
+            android:backgroundTint="#80000000"
+            app:layout_constraintBottom_toBottomOf="@+id/btnAttack"
+            app:layout_constraintEnd_toStartOf="@+id/btnAttack" />
+
+        <ImageButton
+            android:id="@+id/btnSkill2"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_marginBottom="16dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/hero_3"
+            android:scaleType="centerInside"
+            android:backgroundTint="#80000000"
+            app:layout_constraintBottom_toTopOf="@+id/btnSkill1"
+            app:layout_constraintEnd_toStartOf="@+id/btnSkill3" />
+
+        <ImageButton
+            android:id="@+id/btnSkill3"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/hero_4"
+            android:scaleType="centerInside"
+            android:backgroundTint="#80000000"
+            app:layout_constraintBottom_toTopOf="@+id/btnAttack"
+            app:layout_constraintEnd_toEndOf="@+id/btnAttack" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
