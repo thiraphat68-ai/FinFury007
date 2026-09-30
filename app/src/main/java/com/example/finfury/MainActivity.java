@@ -1,13 +1,15 @@
 package com.example.finfury;
 
+import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.Toast;
+import android.widget.TextView;
 import android.widget.VideoView;
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -20,6 +22,12 @@ public class MainActivity extends AppCompatActivity {
     // ตัวแปรเก็บตัวละครที่ถูกเลือก (0 = ยังไม่ได้เลือก, 1-5 คือตัวละคร)
     private int selectedHeroId = 0;
     private LinearLayout[] heroCards;
+
+    // ตัวแปรสำหรับแสดงรายละเอียดตัวละครด้านล่าง
+    private ImageView imgSelectedHero;
+    private TextView txtSelectedName;
+    private TextView txtSelectedSubject;
+    private TextView txtSelectedDesc;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,6 +76,18 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // ==========================================
+        // 🔙 ปุ่มย้อนกลับ (จากหน้า 3 กลับไปหน้า 2)
+        // ==========================================
+        ImageButton btnBack = findViewById(R.id.btnBack);
+        if (btnBack != null) {
+            btnBack.setOnClickListener(v -> {
+                layoutHeroSelect.setVisibility(View.GONE); // ซ่อนหน้าเลือกตัวละคร
+                layoutLevelSelect.setVisibility(View.VISIBLE); // แสดงหน้าเลือกด่านอีกครั้ง
+                videoBackgroundLevel.start(); // เล่นวิดีโอด่านต่อ
+            });
+        }
+
+        // ==========================================
         // 🌀 3. จัดการปุ่มน้ำวน (หน้าเลือกด่าน)
         // ==========================================
         ImageButton btnStage1 = findViewById(R.id.btnStage1);
@@ -91,7 +111,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // ==========================================
-        // ⚔️ 4. ระบบเลือกตัวละคร (Hero Highlight)
+        // ⚔️ 4. ระบบเลือกตัวละคร (Hero Highlight & Details)
         // ==========================================
         Button btnFight = findViewById(R.id.btnFight);
 
@@ -108,6 +128,12 @@ public class MainActivity extends AppCompatActivity {
 
         heroCards = new LinearLayout[]{cardHero1, cardHero2, cardHero3, cardHero4, cardHero5};
 
+        // ผูกตัวแปรแสดงรายละเอียดฮีโร่ที่เลือกด้านล่าง
+        imgSelectedHero = findViewById(R.id.imgSelectedHero);
+        txtSelectedName = findViewById(R.id.txtSelectedName);
+        txtSelectedSubject = findViewById(R.id.txtSelectedSubject);
+        txtSelectedDesc = findViewById(R.id.txtSelectedDesc);
+
         // ตั้งค่า Event การคลิกให้การ์ดแต่ละตัว
         for (int i = 0; i < heroCards.length; i++) {
             final int heroIndex = i + 1; // 1 = Swordfish, 2 = Pufferfish, ...
@@ -119,27 +145,65 @@ public class MainActivity extends AppCompatActivity {
         // ==========================================
         btnFight.setOnClickListener(v -> {
             if (selectedHeroId > 0) {
-                // ใช้ Intent เพื่อเปิดหน้า BattleActivity และพกเอา "หมายเลขปลา" ไปด้วย!
-                android.content.Intent intent = new android.content.Intent(MainActivity.this, BattleActivity.class);
+                // เปิดหน้า BattleActivity พร้อมส่งหมายเลขปลาไปด้วย
+                Intent intent = new Intent(MainActivity.this, BattleActivity.class);
                 intent.putExtra("HERO_ID", selectedHeroId);
                 startActivity(intent);
             }
         });
     }
 
-    // ฟังก์ชันจัดการการเปลี่ยนสีไฮไลท์และเปิดปุ่ม FIGHT
+    // ฟังก์ชันจัดการการเปลี่ยนสีไฮไลท์, แสดงรายละเอียดตัวละคร และเปิดปุ่ม FIGHT
     private void selectHero(int heroIndex, Button btnFight) {
         selectedHeroId = heroIndex;
 
         // 1. คืนค่าการ์ดทั้งหมดให้เป็นสีพื้นหลังปกติ (#1A252C)
         for (LinearLayout card : heroCards) {
-            card.setBackgroundColor(Color.parseColor("#1A252C"));
+            if (card != null) {
+                card.setBackgroundColor(Color.parseColor("#1A252C"));
+            }
         }
 
         // 2. เปลี่ยนสีการ์ดที่ถูกเลือกให้สว่างไฮไลท์ขึ้นมา (#00ADB5)
-        heroCards[heroIndex - 1].setBackgroundColor(Color.parseColor("#00ADB5"));
+        if (heroCards[heroIndex - 1] != null) {
+            heroCards[heroIndex - 1].setBackgroundColor(Color.parseColor("#00ADB5"));
+        }
 
-        // 3. ปลดล็อคปุ่ม FIGHT! และคืนความเข้มปุ่มเป็น 100%
+        // 3. อัปเดตข้อมูลภาพใหญ่ ข้อความวิชา และคำอธิบายด้านล่างให้ถูกต้องตามหมายเลขฮีโร่
+        switch (heroIndex) {
+            case 1: // Swordfish
+                if (imgSelectedHero != null) imgSelectedHero.setImageResource(R.drawable.hero_1);
+                if (txtSelectedName != null) txtSelectedName.setText("Swordfish");
+                if (txtSelectedSubject != null) txtSelectedSubject.setText("แคลคูลัส (Calculus)");
+                if (txtSelectedDesc != null) txtSelectedDesc.setText("ใช้ความแม่นยำในการคำนวณเวกเตอร์เพื่อพุ่งโจมตีศัตรูอย่างรวดเร็ว");
+                break;
+            case 2: // Pufferfish
+                if (imgSelectedHero != null) imgSelectedHero.setImageResource(R.drawable.hero_2);
+                if (txtSelectedName != null) txtSelectedName.setText("Pufferfish");
+                if (txtSelectedSubject != null) txtSelectedSubject.setText("เคมี (Chemistry)");
+                if (txtSelectedDesc != null) txtSelectedDesc.setText("พองตัวและปล่อยสารเคมีสะสมพิษเพื่อสร้างเกราะสะท้อนการโจมตี");
+                break;
+            case 3: // Shark
+                if (imgSelectedHero != null) imgSelectedHero.setImageResource(R.drawable.hero_3);
+                if (txtSelectedName != null) txtSelectedName.setText("Shark");
+                if (txtSelectedSubject != null) txtSelectedSubject.setText("วงจรไฟฟ้า (Electrical Circuits)");
+                if (txtSelectedDesc != null) txtSelectedDesc.setText("ใช้พลังงานไฟฟ้าในการโจมตี และควบคุมสนามไฟฟ้าได้");
+                break;
+            case 4: // Octopus
+                if (imgSelectedHero != null) imgSelectedHero.setImageResource(R.drawable.hero_4);
+                if (txtSelectedName != null) txtSelectedName.setText("Octopus");
+                if (txtSelectedSubject != null) txtSelectedSubject.setText("การเขียนโปรแกรม (Programming)");
+                if (txtSelectedDesc != null) txtSelectedDesc.setText("ใช้หนวดสั่งการเขียนลูปและอัลกอริทึมในการพ่นหมึกบดบังศัตรู");
+                break;
+            case 5: // Electric Eel
+                if (imgSelectedHero != null) imgSelectedHero.setImageResource(R.drawable.hero_5);
+                if (txtSelectedName != null) txtSelectedName.setText("Electric Eel");
+                if (txtSelectedSubject != null) txtSelectedSubject.setText("ฟิสิกส์ (Physics)");
+                if (txtSelectedDesc != null) txtSelectedDesc.setText("ปล่อยกระแสไฟฟ้าแรงสูงตามกฎการนำไฟฟ้าของฟิสิกส์เพื่อช็อตศัตรู");
+                break;
+        }
+
+        // 4. ปลดล็อคปุ่ม FIGHT! และคืนความเข้มปุ่มเป็น 100%
         btnFight.setEnabled(true);
         btnFight.setAlpha(1.0f);
     }
