@@ -297,8 +297,12 @@ public class Swordfish extends Hero {
 
     private static boolean isColliding(View v1, View v2) {
         if (v1 == null || v2 == null) return false;
-        v1.getGlobalVisibleRect(tmpRect1);
-        v2.getGlobalVisibleRect(tmpRect2);
+        // getGlobalVisibleRect คืน false เมื่อ view ยังไม่ได้ layout (ขนาด 0) หรืออยู่นอกจอ
+        // และกรณีขนาด 0 จะ "ไม่เขียนค่า" ลง rect เลย -> tmpRect (static) ค้างค่าของครั้งก่อน
+        // (ของเดิมไม่เช็ก: กระสุนที่เพิ่ง addView เฟรมแรกเลยใช้ตำแหน่งกระสุนลูกก่อน/ตำแหน่งพุ่งชน
+        //  ถ้าศัตรูยังอยู่ตรงนั้น กระสุนลูกใหม่จะ "โดน" แล้วถูกลบทิ้งก่อนได้วาด ดูเหมือนกดแล้วสกิลไม่ออก)
+        if (!v1.getGlobalVisibleRect(tmpRect1)) return false;
+        if (!v2.getGlobalVisibleRect(tmpRect2)) return false;
         return Rect.intersects(tmpRect1, tmpRect2);
     }
 }
