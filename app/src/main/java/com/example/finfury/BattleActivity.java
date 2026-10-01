@@ -1,44 +1,30 @@
 package com.example.finfury;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.Path;
-import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Choreographer;
-import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.animation.DecelerateInterpolator;
-import android.view.animation.LinearInterpolator;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-@SuppressWarnings({"unchecked", "rawtypes"})
-public class BattleActivity extends AppCompatActivity {
+public class BattleActivity extends AppCompatActivity implements BattleContext {
 
     private FrameLayout gameArea;
     private View playerContainer;
@@ -73,184 +59,55 @@ public class BattleActivity extends AppCompatActivity {
     private boolean isGameRunning = true;
     private boolean isGamePaused = false;
 
-    private final List enemyList = new ArrayList();
+    private final List<SeaEnemy> enemyList = new ArrayList<>();
 
-    // --- Quiz System ---
-    private static class QuizQuestion {
-        String question;
-        String[] options;
-        int correctIndex;
+    // --- Quiz System (แยกไปอยู่ใน QuizManager.java) ---
+    private QuizManager quizManager;
 
-        QuizQuestion(String question, String[] options, int correctIndex) {
-            this.question = question;
-            this.options = options;
-            this.correctIndex = correctIndex;
-        }
+    // --- Ultimate Button (ใช้กับฮีโร่ที่ usesUltimateButton() = true) ---
+    private Button btnUltimate;
+    private boolean ultimateReady = false;   // ตอบ quiz ถูกแล้ว รอผู้เล่นกด
+    private boolean ultimateRunning = false; // กำลังปล่อย Ultimate อยู่
+
+    // =========================================================
+    // BattleContext: สิ่งที่สกิลของฮีโร่เรียกใช้ได้
+    // =========================================================
+    @Override
+    public Context getContext() { return this; }
+
+    @Override
+    public FrameLayout getGameArea() { return gameArea; }
+
+    @Override
+    public View getPlayerContainer() { return playerContainer; }
+
+    @Override
+    public float getPlayerAngle() { return playerAngle; }
+
+    @Override
+    public void setSkillLock(boolean locked) { skillLock = locked; }
+
+    @Override
+    public boolean isGameRunning() { return isGameRunning; }
+
+    @Override
+    public boolean isGamePaused() { return isGamePaused; }
+
+    @Override
+    public List<SeaEnemy> getEnemies() { return enemyList; }
+
+    @Override
+    public void onEnemyDefeated() { checkWinCondition(); }
+
+    @Override
+    public void onUltimateFinished() {
+        ultimateRunning = false;
+        currentStack = 0;
+        updateStackUI();
+        updateUltimateButton();
     }
 
-    private final List quizBank = new ArrayList();
-    private int lastQuestionIndex = -1;
-    private CountDownTimer quizTimer;
-    private AlertDialog quizDialog;
-
-    private void initQuizBank() {
-        quizBank.clear();
-        quizBank.add(new QuizQuestion("ดิฟเฟอเรนเชียลพื้นฐาน: อนุพันธ์ของ x (d/dx x) มีค่าเท่ากับข้อใด?", new String[]{"0", "1", "x", "2x"}, 1));
-        quizBank.add(new QuizQuestion("อนุพันธ์ของค่าคงที่ c (d/dx c) มีค่าเท่ากับข้อใด?", new String[]{"0", "1", "c", "x"}, 0));
-        quizBank.add(new QuizQuestion("อนุพันธ์ของ x² (d/dx x²) มีค่าเท่ากับข้อใด?", new String[]{"x", "2x", "x²", "2"}, 1));
-        quizBank.add(new QuizQuestion("อนุพันธ์ของ x³ (d/dx x³) มีค่าเท่ากับข้อใด?", new String[]{"3x", "3x²", "x²", "3"}, 1));
-        quizBank.add(new QuizQuestion("อนุพันธ์ของ sin(x) (d/dx sin(x)) คือข้อใด?", new String[]{"cos(x)", "-cos(x)", "tan(x)", "-sin(x)"}, 0));
-        quizBank.add(new QuizQuestion("อนุพันธ์ของ cos(x) (d/dx cos(x)) คือข้อใด?", new String[]{"sin(x)", "-sin(x)", "-cos(x)", "sec(x)"}, 1));
-        quizBank.add(new QuizQuestion("อนุพันธ์ของ e^x (d/dx e^x) คือข้อใด?", new String[]{"e^x", "x e^(x-1)", "1", "ln(x)"}, 0));
-        quizBank.add(new QuizQuestion("อนุพันธ์ของ ln(x) (d/dx ln(x)) คือข้อใด?", new String[]{"1/x", "e^x", "1", "x"}, 0));
-    }
-
-    private class SeaEnemy {
-        String name;
-        String emoji;
-        int hp = 10;
-        int maxHp = 10;
-        boolean isAlive = true;
-        View containerView;
-        TextView imgAvatar;
-        ProgressBar barHp;
-        TextView txtHp;
-        float speed = 1.1f;
-        long lastAttackTime = 0;
-        float animTime = (float) (Math.random() * 10);
-
-        SeaEnemy(String name, String emoji, float posX, float posY) {
-            this.name = name;
-            this.emoji = emoji;
-            createView(posX, posY);
-        }
-
-        private void createView(float posX, float posY) {
-            LinearLayout layout = new LinearLayout(BattleActivity.this);
-            layout.setLayoutParams(new FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.WRAP_CONTENT,
-                    FrameLayout.LayoutParams.WRAP_CONTENT
-            ));
-            layout.setOrientation(LinearLayout.VERTICAL);
-            layout.setGravity(Gravity.CENTER);
-
-            TextView txtName = new TextView(BattleActivity.this);
-            txtName.setText(name);
-            txtName.setTextColor(Color.WHITE);
-            txtName.setTextSize(11f);
-            txtName.setGravity(Gravity.CENTER);
-
-            barHp = new ProgressBar(BattleActivity.this, null, android.R.attr.progressBarStyleHorizontal);
-            barHp.setMax(maxHp);
-            barHp.setProgress(hp);
-            barHp.setProgressTintList(android.content.res.ColorStateList.valueOf(Color.RED));
-            LinearLayout.LayoutParams barParams = new LinearLayout.LayoutParams(90, 14);
-            barParams.bottomMargin = 2;
-            barHp.setLayoutParams(barParams);
-
-            txtHp = new TextView(BattleActivity.this);
-            txtHp.setText(String.format(Locale.US, "%d/%d", hp, maxHp));
-            txtHp.setTextColor(Color.YELLOW);
-            txtHp.setTextSize(9f);
-            txtHp.setGravity(Gravity.CENTER);
-
-            imgAvatar = new TextView(BattleActivity.this);
-            imgAvatar.setText(emoji);
-            imgAvatar.setTextSize(36f);
-            imgAvatar.setGravity(Gravity.CENTER);
-
-            layout.addView(txtName);
-            layout.addView(barHp);
-            layout.addView(txtHp);
-            layout.addView(imgAvatar);
-
-            layout.setX(posX);
-            layout.setY(posY);
-
-            containerView = layout;
-            if (gameArea != null) {
-                gameArea.addView(containerView);
-            }
-        }
-
-        void updateAI(float targetX, float targetY) {
-            if (!isAlive || containerView == null || !isGameRunning || isGamePaused) return;
-
-            float currentX = containerView.getX();
-            float currentY = containerView.getY();
-
-            float dx = targetX - currentX;
-            float dy = targetY - currentY;
-            float distance = (float) Math.hypot(dx, dy);
-
-            float nextX = currentX;
-            float nextY = currentY;
-
-            if (distance > 45f) {
-                float dirX = dx / distance;
-                float dirY = dy / distance;
-                nextX += (dirX * speed);
-                nextY += (dirY * speed);
-            } else {
-                long now = System.currentTimeMillis();
-                if (now - lastAttackTime > 800) {
-                    lastAttackTime = now;
-                    damagePlayer(5);
-                }
-            }
-
-            for (Object item : enemyList) {
-                SeaEnemy other = (SeaEnemy) item;
-                if (other != this && other.isAlive && other.containerView != null) {
-                    float ox = other.containerView.getX();
-                    float oy = other.containerView.getY();
-                    float distToOther = (float) Math.hypot(nextX - ox, nextY - oy);
-
-                    if (distToOther > 0 && distToOther < 80f) {
-                        float pushX = (nextX - ox) / distToOther;
-                        float pushY = (nextY - oy) / distToOther;
-                        nextX += pushX * 1.5f;
-                        nextY += pushY * 1.5f;
-                    }
-                }
-            }
-
-            containerView.setX(nextX);
-            containerView.setY(nextY);
-
-            animTime += 0.08f;
-            float facing = (dx < 0) ? 1f : -1f;
-            float wave = (float) Math.sin(animTime * 2.5f);
-            float tilt = (float) Math.sin(animTime * 1.5f) * 7f;
-
-            containerView.setRotation(tilt);
-            containerView.setScaleX(facing * (1.0f + wave * 0.06f));
-            containerView.setScaleY(1.0f - wave * 0.06f);
-        }
-
-        void takeDamage(int damage) {
-            if (!isAlive || !isGameRunning || containerView == null) return;
-
-            hp = Math.max(0, hp - damage);
-            if (barHp != null) barHp.setProgress(hp);
-            if (txtHp != null) txtHp.setText(String.format(Locale.US, "%d/%d", hp, maxHp));
-
-            containerView.animate().alpha(0.3f).setDuration(80)
-                    .withEndAction(() -> {
-                        if (containerView != null) containerView.animate().alpha(1.0f).setDuration(80).start();
-                    }).start();
-
-            if (hp <= 0) {
-                isAlive = false;
-                containerView.animate().scaleX(0f).scaleY(0f).alpha(0f).setDuration(250)
-                        .withEndAction(() -> {
-                            if (containerView != null) containerView.setVisibility(View.GONE);
-                        }).start();
-
-                checkWinCondition();
-            }
-        }
-    }
+    // =========================================================
 
     @SuppressLint("ClickableViewAccessibility")
     @Override
@@ -261,6 +118,7 @@ public class BattleActivity extends AppCompatActivity {
         currentHeroId = getIntent().getIntExtra("HERO_ID", 1);
         currentStageId = getIntent().getIntExtra("STAGE_ID", 1);
         playerHero = HeroFactory.createHero(currentHeroId);
+        setupQuiz();
 
         gameArea = findViewById(R.id.gameArea);
         playerContainer = findViewById(R.id.playerContainer);
@@ -321,14 +179,44 @@ public class BattleActivity extends AppCompatActivity {
             });
         }
 
+        // ปุ่มสกิล: ดูแลแค่คูลดาวน์/แอนิเมชันปุ่ม แล้วส่งต่อให้ฮีโร่เป็นคนทำสกิล
         Button btnSkill1 = findViewById(R.id.btnSkill1);
         Button btnSkill2 = findViewById(R.id.btnSkill2);
 
-        if (btnSkill1 != null) btnSkill1.setOnClickListener(v -> useSkill1BiteDash((Button) v));
-        if (btnSkill2 != null) btnSkill2.setOnClickListener(v -> useSkill2Needle((Button) v));
+        if (btnSkill1 != null) {
+            btnSkill1.setOnClickListener(v -> {
+                if (isGamePaused || gameArea == null || playerContainer == null) return;
+                startCooldownUI(btnSkill1, "Skill 1");
+                animateButton(btnSkill1);
+                playerHero.useSkill1(this);
+            });
+        }
+        if (btnSkill2 != null) {
+            btnSkill2.setOnClickListener(v -> {
+                if (isGamePaused) return;
+                startCooldownUI(btnSkill2, "Skill 2");
+                animateButton(btnSkill2);
+                playerHero.useSkill2(this);
+            });
+        }
+
+        // ปุ่ม Ultimate: โชว์เฉพาะฮีโร่ที่ใช้ปุ่มแยก
+        btnUltimate = findViewById(R.id.btnUltimate);
+        if (btnUltimate != null) {
+            btnUltimate.setVisibility(playerHero.usesUltimateButton() ? View.VISIBLE : View.GONE);
+            btnUltimate.setOnClickListener(v -> {
+                if (!ultimateReady || ultimateRunning || isGamePaused || !isGameRunning) return;
+                ultimateReady = false;
+                ultimateRunning = true;
+                updateUltimateButton();
+                animateButton(btnUltimate);
+                playerHero.executeUltimateSkill(this);
+            });
+        }
 
         setupHeroAndSkills(currentHeroId);
         updateStackUI();
+        updateUltimateButton();
 
         if (gameArea != null) {
             gameArea.post(() -> {
@@ -350,10 +238,11 @@ public class BattleActivity extends AppCompatActivity {
                 updateFish(dt);
 
                 if (playerContainer != null) {
-                    float pX = playerContainer.getX() + playerContainer.getTranslationX();
-                    float pY = playerContainer.getY() + playerContainer.getTranslationY();
-                    for (Object item : enemyList) {
-                        SeaEnemy enemy = (SeaEnemy) item;
+                    // getX()/getY() รวม translation ไว้แล้ว ห้ามบวก getTranslationX/Y ซ้ำ
+                    // (ของเดิมบวกซ้ำ ศัตรูเลยวิ่งไปตีจุดว่างๆ แล้ว HP เราลดทั้งที่ไม่มีใครอยู่ใกล้)
+                    float pX = playerContainer.getX();
+                    float pY = playerContainer.getY();
+                    for (SeaEnemy enemy : enemyList) {
                         enemy.updateAI(pX, pY);
                     }
                 }
@@ -425,11 +314,11 @@ public class BattleActivity extends AppCompatActivity {
         float width = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1000f;
         float height = gameArea.getHeight() > 0 ? gameArea.getHeight() : 500f;
 
-        enemyList.add(new SeaEnemy("ปูซ่า", "🦀", width * 0.70f, height * 0.15f));
-        enemyList.add(new SeaEnemy("แมงกะพรุน", "🪼", width * 0.85f, height * 0.35f));
-        enemyList.add(new SeaEnemy("เต่าทะเล", "🐢", width * 0.75f, height * 0.55f));
-        enemyList.add(new SeaEnemy("หมึกยักษ์", "🦑", width * 0.90f, height * 0.75f));
-        enemyList.add(new SeaEnemy("ดาวทะเล", "⭐️", width * 0.65f, height * 0.85f));
+        enemyList.add(new SeaEnemy(this, "ปูซ่า", "🦀", width * 0.70f, height * 0.15f));
+        enemyList.add(new SeaEnemy(this, "แมงกะพรุน", "🪼", width * 0.85f, height * 0.35f));
+        enemyList.add(new SeaEnemy(this, "เต่าทะเล", "🐢", width * 0.75f, height * 0.55f));
+        enemyList.add(new SeaEnemy(this, "หมึกยักษ์", "🦑", width * 0.90f, height * 0.75f));
+        enemyList.add(new SeaEnemy(this, "ดาวทะเล", "⭐️", width * 0.65f, height * 0.85f));
     }
 
     private void startCooldownUI(Button btn, String originalText) {
@@ -448,151 +337,17 @@ public class BattleActivity extends AppCompatActivity {
         }.start();
     }
 
-    private void useSkill1BiteDash(Button button) {
-        if (isGamePaused || gameArea == null || playerContainer == null) return;
-        startCooldownUI(button, "Skill 1");
-        animateButton(button);
-
-        skillLock = true;
-
-        float rad = (float) Math.toRadians(playerAngle);
-        float dashDist = 300f;
-
-        float startX = playerContainer.getX() + playerContainer.getTranslationX();
-        float startY = playerContainer.getY() + playerContainer.getTranslationY();
-
-        float targetX = startX + (float) Math.cos(rad) * dashDist;
-        float targetY = startY + (float) Math.sin(rad) * dashDist;
-
-        if (gameArea.getWidth() > 0 && gameArea.getHeight() > 0) {
-            targetX = Math.max(0, Math.min(gameArea.getWidth() - playerContainer.getWidth(), targetX));
-            targetY = Math.max(0, Math.min(gameArea.getHeight() - playerContainer.getHeight(), targetY));
-        }
-
-        ValueAnimator dashAnimator = ValueAnimator.ofFloat(0f, 1f);
-        dashAnimator.setDuration(150);
-        dashAnimator.setInterpolator(new DecelerateInterpolator());
-
-        List hitEnemies = new ArrayList();
-        final float finalTargetX = targetX;
-        final float finalTargetY = targetY;
-
-        dashAnimator.addUpdateListener(animation -> {
-            if (playerContainer == null) return;
-            float progress = (float) animation.getAnimatedValue();
-
-            playerContainer.setTranslationX((finalTargetX - startX) * progress + (startX - playerContainer.getX()));
-            playerContainer.setTranslationY((finalTargetY - startY) * progress + (startY - playerContainer.getY()));
-
-            for (Object item : enemyList) {
-                SeaEnemy enemy = (SeaEnemy) item;
-                if (enemy.isAlive && enemy.containerView != null && !hitEnemies.contains(enemy) && isColliding(playerContainer, enemy.containerView)) {
-                    hitEnemies.add(enemy);
-                    enemy.takeDamage(2);
-                    onHitEnemySuccess();
-                }
-            }
-        });
-
-        dashAnimator.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                skillLock = false;
-            }
-        });
-
-        dashAnimator.start();
-    }
-
-    private void useSkill2Needle(Button button) {
-        if (isGamePaused) return;
-        startCooldownUI(button, "Skill 2");
-        animateButton(button);
-        spawnProjectile(android.R.drawable.ic_menu_compass, 550, 1100f);
-    }
-
-    private void spawnProjectile(int iconResId, long duration, float distance) {
-        if (gameArea == null || playerContainer == null) return;
-
-        ImageView projectile = new ImageView(this);
-        projectile.setImageResource(iconResId);
-        projectile.setLayoutParams(new FrameLayout.LayoutParams(55, 55));
-
-        float playerX = playerContainer.getX() + playerContainer.getTranslationX() + (playerContainer.getWidth() / 2f);
-        float playerY = playerContainer.getY() + playerContainer.getTranslationY() + (playerContainer.getHeight() / 2f);
-
-        float rad = (float) Math.toRadians(playerAngle);
-        float startX = playerX + (float) Math.cos(rad) * 40f - 27.5f;
-        float startY = playerY + (float) Math.sin(rad) * 40f - 27.5f;
-
-        projectile.setX(startX);
-        projectile.setY(startY);
-        gameArea.addView(projectile);
-
-        float targetX = startX + (float) Math.cos(rad) * distance;
-        float targetY = startY + (float) Math.sin(rad) * distance;
-
-        ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
-        animator.setDuration(duration);
-        animator.setInterpolator(new LinearInterpolator());
-
-        final boolean[] hasHit = {false};
-
-        animator.addUpdateListener(animation -> {
-            if (hasHit[0]) return;
-
-            float fraction = animation.getAnimatedFraction();
-            float currentX = startX + (targetX - startX) * fraction;
-            float currentY = startY + (targetY - startY) * fraction;
-
-            projectile.setX(currentX);
-            projectile.setY(currentY);
-            projectile.setRotation(projectile.getRotation() + 18f);
-
-            for (Object item : enemyList) {
-                SeaEnemy enemy = (SeaEnemy) item;
-                if (enemy.isAlive && enemy.containerView != null && isColliding(projectile, enemy.containerView)) {
-                    hasHit[0] = true;
-                    animator.cancel();
-                    gameArea.removeView(projectile);
-
-                    enemy.takeDamage(1);
-                    onHitEnemySuccess();
-                    break;
-                }
-            }
-        });
-
-        animator.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                if (!hasHit[0] && gameArea != null) {
-                    gameArea.removeView(projectile);
-                }
-            }
-        });
-
-        animator.start();
-    }
-
-    private boolean isColliding(View v1, View v2) {
-        if (v1 == null || v2 == null) return false;
-        Rect r1 = new Rect();
-        v1.getGlobalVisibleRect(r1);
-        Rect r2 = new Rect();
-        v2.getGlobalVisibleRect(r2);
-        return Rect.intersects(r1, r2);
-    }
-
-    private void onHitEnemySuccess() {
+    @Override
+    public void onHitEnemySuccess() {
         if (currentStack < MAX_STACK) {
             currentStack++;
             updateStackUI();
-            if (currentStack >= MAX_STACK) showQuizDialog();
+            if (currentStack >= MAX_STACK) quizManager.show();
         }
     }
 
-    private void damagePlayer(int damage) {
+    @Override
+    public void damagePlayer(int damage) {
         if (!isGameRunning) return;
 
         playerHp = Math.max(0, playerHp - damage);
@@ -618,8 +373,7 @@ public class BattleActivity extends AppCompatActivity {
 
     private void checkWinCondition() {
         boolean allDead = true;
-        for (Object item : enemyList) {
-            SeaEnemy enemy = (SeaEnemy) item;
+        for (SeaEnemy enemy : enemyList) {
             if (enemy.isAlive) {
                 allDead = false;
                 break;
@@ -651,149 +405,46 @@ public class BattleActivity extends AppCompatActivity {
         }
     }
 
-    private void showQuizDialog() {
-        if (quizBank.isEmpty()) initQuizBank();
-
-        isGamePaused = true;
-
-        int randomIndex;
-        do {
-            randomIndex = (int) (Math.random() * quizBank.size());
-        } while (quizBank.size() > 1 && randomIndex == lastQuestionIndex);
-        lastQuestionIndex = randomIndex;
-
-        QuizQuestion q = (QuizQuestion) quizBank.get(randomIndex);
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(String.format(Locale.US, "Calculus Quiz (เวลา 05:00)\n%s", q.question));
-        builder.setCancelable(false);
-        builder.setItems(q.options, (dialog, which) -> {
-            if (quizTimer != null) quizTimer.cancel();
-
-            if (which == q.correctIndex) {
-                new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                    isGamePaused = false;
-                    executeUltimateThunderBreathing();
-                }, 600);
-            } else {
-                isGamePaused = false;
-                currentStack = 0;
-                updateStackUI();
-            }
-        });
-
-        quizDialog = builder.create();
-        quizDialog.show();
-
-        if (quizTimer != null) quizTimer.cancel();
-        quizTimer = new CountDownTimer(300000, 1000) {
-            @Override
-            public void onTick(long millisUntilFinished) {
-                long minutes = (millisUntilFinished / 1000) / 60;
-                long seconds = (millisUntilFinished / 1000) % 60;
-                if (quizDialog != null && quizDialog.isShowing()) {
-                    quizDialog.setTitle(String.format(Locale.US, "Calculus Quiz (%02d:%02d)\n%s", minutes, seconds, q.question));
-                }
-            }
-
-            @Override
-            public void onFinish() {
-                if (quizDialog != null && quizDialog.isShowing()) {
-                    quizDialog.dismiss();
-                }
-                isGamePaused = false;
-                currentStack = 0;
-                updateStackUI();
-            }
-        }.start();
-    }
-
-    private void executeUltimateThunderBreathing() {
-        if (playerContainer == null || gameArea == null) return;
-
-        skillLock = true;
-
-        View flashView = new View(this);
-        flashView.setBackgroundColor(Color.parseColor("#66FFFF00"));
-        flashView.setLayoutParams(new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-        gameArea.addView(flashView);
-        flashView.animate().alpha(0f).setDuration(600).withEndAction(() -> {
-            if (gameArea != null) gameArea.removeView(flashView);
-        }).start();
-
-        List targets = new ArrayList();
-        for (Object item : enemyList) {
-            SeaEnemy e = (SeaEnemy) item;
-            if (e.isAlive) targets.add(e);
-        }
-
-        if (targets.isEmpty()) {
-            skillLock = false;
-            currentStack = 0;
-            updateStackUI();
-            return;
-        }
-
-        float originalX = playerContainer.getTranslationX();
-        float originalY = playerContainer.getTranslationY();
-
-        playerContainer.animate().scaleX(1.3f).scaleY(1.3f).setDuration(300).withEndAction(() ->
-                dashToNextTarget(targets, 0, originalX, originalY)
-        ).start();
-    }
-
-    private void dashToNextTarget(List targets, int index, float startTransX, float startTransY) {
-        if (playerContainer == null) return;
-
-        if (index >= targets.size()) {
-            playerContainer.animate().translationX(startTransX).translationY(startTransY)
-                    .scaleX(1f).scaleY(1f).setDuration(350).withEndAction(() -> {
-                        skillLock = false;
-                        currentStack = 0;
-                        updateStackUI();
-                    }).start();
-            return;
-        }
-
-        SeaEnemy target = (SeaEnemy) targets.get(index);
-
-        if (!target.isAlive || target.containerView == null) {
-            dashToNextTarget(targets, index + 1, startTransX, startTransY);
-            return;
-        }
-
-        float targetX = target.containerView.getX();
-        float targetY = target.containerView.getY();
-
-        LightningEffectView lightning = new LightningEffectView(this,
-                playerContainer.getX() + playerContainer.getTranslationX() + playerContainer.getWidth() / 2f,
-                playerContainer.getY() + playerContainer.getTranslationY() + playerContainer.getHeight() / 2f,
-                targetX + target.containerView.getWidth() / 2f,
-                targetY + target.containerView.getHeight() / 2f);
-        if (gameArea != null) gameArea.addView(lightning);
-
-        playerContainer.animate()
-                .translationX(targetX - playerContainer.getX())
-                .translationY(targetY - playerContainer.getY())
-                .setDuration(350)
-                .setInterpolator(new DecelerateInterpolator())
-                .withEndAction(() -> {
-                    target.takeDamage(5);
-
-                    if (target.containerView != null) {
-                        target.containerView.animate().translationYBy(-20f).setDuration(120)
-                                .withEndAction(() -> {
-                                    if (target.containerView != null) target.containerView.animate().translationYBy(20f).setDuration(120).start();
-                                }).start();
+    private void setupQuiz() {
+        quizManager = new QuizManager(this, "Calculus", QuizManager.calculusQuestions(),
+                new QuizManager.Listener() {
+                    @Override
+                    public void onQuizShown() {
+                        isGamePaused = true;
                     }
 
-                    if (gameArea != null) gameArea.removeView(lightning);
+                    @Override
+                    public void onCorrect() {
+                        if (playerHero.usesUltimateButton()) {
+                            // ตอบถูก -> แค่ปลดล็อกปุ่ม ULT ให้ผู้เล่นกดเองตอนไหนก็ได้
+                            isGamePaused = false;
+                            ultimateReady = true;
+                            updateUltimateButton();
+                            return;
+                        }
+                        // ฮีโร่อื่น: ตอบถูก -> ปล่อย Ultimate อัตโนมัติ (แบบเดิม)
+                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                            isGamePaused = false;
+                            playerHero.executeUltimateSkill(BattleActivity.this);
+                        }, 600);
+                    }
 
-                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                        dashToNextTarget(targets, index + 1, startTransX, startTransY);
-                    }, 100);
-                }).start();
+                    @Override
+                    public void onWrong() {
+                        resetStackAfterQuiz();
+                    }
+
+                    @Override
+                    public void onTimeout() {
+                        resetStackAfterQuiz();
+                    }
+                });
+    }
+
+    private void resetStackAfterQuiz() {
+        isGamePaused = false;
+        currentStack = 0;
+        updateStackUI();
     }
 
     @SuppressLint("SetTextI18n")
@@ -801,6 +452,28 @@ public class BattleActivity extends AppCompatActivity {
         if (stackProgressBar != null) stackProgressBar.setProgress(currentStack);
         if (txtStackGauge != null && playerHero != null) {
             txtStackGauge.setText(playerHero.getName() + " | Stack: " + currentStack + "/" + MAX_STACK);
+        }
+    }
+
+    /** ล็อก = จาง + กดไม่ได้, พร้อม = สว่าง + เด้งเตือน */
+    @SuppressLint("SetTextI18n")
+    private void updateUltimateButton() {
+        if (btnUltimate == null) return;
+        btnUltimate.animate().cancel();
+        btnUltimate.setScaleX(1f);
+        btnUltimate.setScaleY(1f);
+
+        if (ultimateReady) {
+            btnUltimate.setEnabled(true);
+            btnUltimate.setAlpha(1f);
+            btnUltimate.setText("ULT!");
+            btnUltimate.animate().scaleX(1.15f).scaleY(1.15f).setDuration(150)
+                    .withEndAction(() -> btnUltimate.animate().scaleX(1f).scaleY(1f).setDuration(150).start())
+                    .start();
+        } else {
+            btnUltimate.setEnabled(false);
+            btnUltimate.setAlpha(0.4f);
+            btnUltimate.setText("🔒 ULT");
         }
     }
 
@@ -830,42 +503,6 @@ public class BattleActivity extends AppCompatActivity {
 
         Choreographer.getInstance().removeFrameCallback(frameCallback);
 
-        if (quizTimer != null) {
-            quizTimer.cancel();
-        }
-        if (quizDialog != null && quizDialog.isShowing()) {
-            quizDialog.dismiss();
-        }
-    }
-
-    private static class LightningEffectView extends View {
-        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Path path = new Path();
-
-        public LightningEffectView(Context context, float sx, float sy, float ex, float ey) {
-            super(context);
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(12f);
-            paint.setColor(Color.parseColor("#FFF59D"));
-            paint.setShadowLayer(25f, 0f, 0f, Color.parseColor("#00E5FF"));
-
-            path.moveTo(sx, sy);
-            int steps = 4;
-            float dx = (ex - sx) / steps;
-            float dy = (ey - sy) / steps;
-
-            for (int i = 1; i < steps; i++) {
-                float px = sx + (dx * i) + (float) (Math.random() * 80 - 40);
-                float py = sy + (dy * i) + (float) (Math.random() * 80 - 40);
-                path.lineTo(px, py);
-            }
-            path.lineTo(ex, ey);
-        }
-
-        @Override
-        protected void onDraw(@NonNull Canvas canvas) {
-            super.onDraw(canvas);
-            canvas.drawPath(path, paint);
-        }
+        if (quizManager != null) quizManager.destroy();
     }
 }

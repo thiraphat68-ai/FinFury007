@@ -172,6 +172,7 @@
     <!-- Layer 6: UI ด้านล่างขวา (ปุ่ม Skill 1 และ Skill 2) -->
     <!-- ============================================== -->
     <LinearLayout
+        android:id="@+id/layoutSkills"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="24dp"
@@ -212,5 +213,31 @@
             android:textStyle="bold"
             app:cornerRadius="34dp" />
     </LinearLayout>
+
+    <!-- ============================================== -->
+    <!-- Layer 7: ปุ่ม Ultimate (อยู่เหนือปุ่ม Skill) -->
+    <!-- ล็อกไว้จนกว่าสแตกเต็ม + ตอบ quiz ถูก -->
+    <!-- ซ่อนอัตโนมัติสำหรับฮีโร่ที่ยังใช้ Ultimate อัตโนมัติ -->
+    <!-- ============================================== -->
+    <Button
+        android:id="@+id/btnUltimate"
+        android:layout_width="76dp"
+        android:layout_height="76dp"
+        android:layout_marginBottom="12dp"
+        android:alpha="0.4"
+        android:backgroundTint="#F39C12"
+        android:enabled="false"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:padding="0dp"
+        android:text="🔒 ULT"
+        android:textColor="#FFFFFF"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        app:cornerRadius="38dp"
+        app:layout_constraintBottom_toTopOf="@id/layoutSkills"
+        app:layout_constraintEnd_toEndOf="@id/layoutSkills"
+        app:layout_constraintStart_toStartOf="@id/layoutSkills" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

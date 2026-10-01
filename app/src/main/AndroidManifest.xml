@@ -24,6 +24,11 @@
             </intent-filter>
         </activity>
         <activity
+            android:name=".SelectStageActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|keyboardHidden|screenSize" />
+        <activity
             android:name=".BattleActivity"
             android:exported="false"
             android:screenOrientation="landscape"
