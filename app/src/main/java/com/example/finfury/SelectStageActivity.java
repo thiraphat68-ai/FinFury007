@@ -1,13 +1,12 @@
 package com.example.finfury;
 
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.ImageButton;
+import android.widget.TextView;
 import androidx.annotation.NonNull; // 🟢 Import สำหรับแก้ Warning line 38
-import androidx.appcompat.app.AppCompatActivity;
 
-public class SelectStageActivity extends AppCompatActivity {
+public class SelectStageActivity extends BaseActivity {
 
     private ImageButton btnStage1;
     private ImageButton btnStage2;
@@ -42,37 +41,44 @@ public class SelectStageActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        SoundManager.playMusic(this, "bgm_menu");
         updateStageUnlocks();
     }
 
-    private void updateStageUnlocks() {
-        SharedPreferences prefs = getSharedPreferences("GamePrefs", MODE_PRIVATE);
-        int unlockedStage = prefs.getInt("unlocked_stage", 1);
-
-        setupStageButton(btnStage1, 1, unlockedStage, R.drawable.ic_whirlpool_green);
-        setupStageButton(btnStage2, 2, unlockedStage, R.drawable.ic_whirlpool_blue);
-        setupStageButton(btnStage3, 3, unlockedStage, R.drawable.ic_whirlpool_blue);
-        setupStageButton(btnStage4, 4, unlockedStage, R.drawable.ic_whirlpool_blue);
-        setupStageButton(btnStage5, 5, unlockedStage, R.drawable.ic_whirlpool_blue);
+    @Override
+    protected void onPause() {
+        super.onPause();
+        SoundManager.pauseMusic();
     }
 
-    private void setupStageButton(ImageButton button, int stageNumber, int unlockedStage, int unlockedDrawableRes) {
+    private void updateStageUnlocks() {
+        // ทุกด่านเลือกได้ตั้งแต่เริ่ม ไม่ดูค่า "unlocked_stage" (BattleActivity ยังบันทึกค่านี้ไว้ตามเดิม)
+
+        // ดาวที่ดีที่สุดของแต่ละด่านใต้ปุ่มด่าน
+        int[] starViews = {R.id.txtStars1, R.id.txtStars2, R.id.txtStars3, R.id.txtStars4, R.id.txtStars5};
+        for (int i = 0; i < starViews.length; i++) {
+            TextView tv = findViewById(starViews[i]);
+            if (tv != null) tv.setText(GameProgress.starsText(GameProgress.getStars(this, i + 1)));
+        }
+
+        setupStageButton(btnStage1, 1, R.drawable.ic_whirlpool_green);
+        setupStageButton(btnStage2, 2, R.drawable.ic_whirlpool_blue);
+        setupStageButton(btnStage3, 3, R.drawable.ic_whirlpool_blue);
+        setupStageButton(btnStage4, 4, R.drawable.ic_whirlpool_blue);
+        setupStageButton(btnStage5, 5, R.drawable.ic_whirlpool_blue);
+    }
+
+    private void setupStageButton(ImageButton button, int stageNumber, int drawableRes) {
         if (button == null) return;
 
-        if (unlockedStage >= stageNumber) {
-            button.setEnabled(true);
-            button.setAlpha(1.0f);
-            button.setImageResource(unlockedDrawableRes);
-            button.setOnClickListener(v -> startBattleStage(stageNumber));
-        } else {
-            button.setEnabled(false);
-            button.setAlpha(0.5f);
-            button.setImageResource(R.drawable.ic_whirlpool_lock);
-            button.setOnClickListener(null);
-        }
+        button.setEnabled(true);
+        button.setAlpha(1.0f);
+        button.setImageResource(drawableRes);
+        button.setOnClickListener(v -> startBattleStage(stageNumber));
     }
 
     private void startBattleStage(int stageId) {
+        SoundManager.play(SoundManager.Sfx.BUTTON);
         Intent intent = new Intent(SelectStageActivity.this, BattleActivity.class);
         intent.putExtra("STAGE_ID", stageId);
         intent.putExtra("HERO_ID", currentHeroId);

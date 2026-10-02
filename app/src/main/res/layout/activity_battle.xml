@@ -40,6 +40,30 @@
         </LinearLayout>
 
         <!-- ศัตรูบอททั้ง 5 ตัวจะถูกสร้างแบบ Dynamic ในโค้ด Java -->
+
+        <!-- ตัวเลขโบนัสดาเมจเหนือหัวผู้เล่น (Blood Frenzy) ตำแหน่งตามตัวผู้เล่นในโค้ด -->
+        <TextView
+            android:id="@+id/txtBonusDamage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:shadowColor="#000000"
+            android:shadowRadius="6"
+            android:textColor="#FF5252"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <!-- หลอดชาร์จเหนือหัวผู้เล่น (Railgun) ตำแหน่งตามตัวผู้เล่นในโค้ด -->
+        <ProgressBar
+            android:id="@+id/barPlayerCharge"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="80dp"
+            android:layout_height="9dp"
+            android:max="1000"
+            android:progress="0"
+            android:progressBackgroundTint="#55000000"
+            android:progressTint="#00E5FF"
+            android:visibility="gone" />
     </FrameLayout>
 
     <!-- ============================================== -->
@@ -81,7 +105,7 @@
         android:id="@+id/barHp"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="120dp"
-        android:layout_height="12dp"
+        android:layout_height="16dp"
         android:layout_marginTop="2dp"
         android:max="100"
         android:progress="80"
@@ -89,6 +113,38 @@
         android:progressTint="#2ECC71"
         app:layout_constraintStart_toStartOf="@id/txtHpLabel"
         app:layout_constraintTop_toBottomOf="@id/txtHpLabel" />
+
+    <!-- ตัวเลข HP ทับกลางหลอด เช่น 75/100 -->
+    <TextView
+        android:id="@+id/txtHpValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:shadowColor="#000000"
+        android:shadowRadius="3"
+        android:text="100/100"
+        android:textColor="#FFFFFF"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="@id/barHp"
+        app:layout_constraintEnd_toEndOf="@id/barHp"
+        app:layout_constraintStart_toStartOf="@id/barHp"
+        app:layout_constraintTop_toTopOf="@id/barHp" />
+
+    <!-- ด่านที่กำลังเล่น + จำนวนศัตรูที่เหลือ (ใต้หลอด Stack ตรงกลางบน) -->
+    <TextView
+        android:id="@+id/txtStageInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:background="#66000000"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="3dp"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/layoutStack" />
 
     <!-- ============================================== -->
     <!-- Layer 3: UI ด้านบนตรงกลาง (หลอด Stack) -->
@@ -148,7 +204,8 @@
         android:background="?selectableItemBackgroundBorderless"
         android:padding="8dp"
         android:scaleType="fitCenter"
-        android:src="@android:drawable/ic_menu_revert"
+        android:contentDescription="หยุดเกม"
+        android:src="@android:drawable/ic_media_pause"
         app:tint="#FFFFFF"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
@@ -192,33 +249,35 @@
         <!-- ปุ่ม Skill 1 -->
         <Button
             android:id="@+id/btnSkill1"
-            android:layout_width="68dp"
-            android:layout_height="68dp"
+            android:layout_width="84dp"
+            android:layout_height="84dp"
             android:layout_marginEnd="12dp"
             android:backgroundTint="#E74C3C"
             android:insetTop="0dp"
             android:insetBottom="0dp"
-            android:padding="0dp"
+            android:padding="2dp"
             android:text="Skill 1"
+            android:textAllCaps="false"
             android:textColor="#FFFFFF"
-            android:textSize="12sp"
+            android:textSize="9sp"
             android:textStyle="bold"
-            app:cornerRadius="34dp" />
+            app:cornerRadius="42dp" />
 
         <!-- ปุ่ม Skill 2 -->
         <Button
             android:id="@+id/btnSkill2"
-            android:layout_width="68dp"
-            android:layout_height="68dp"
+            android:layout_width="84dp"
+            android:layout_height="84dp"
             android:backgroundTint="#2980B9"
             android:insetTop="0dp"
             android:insetBottom="0dp"
-            android:padding="0dp"
+            android:padding="2dp"
             android:text="Skill 2"
+            android:textAllCaps="false"
             android:textColor="#FFFFFF"
-            android:textSize="12sp"
+            android:textSize="9sp"
             android:textStyle="bold"
-            app:cornerRadius="34dp" />
+            app:cornerRadius="42dp" />
     </LinearLayout>
 
     <!-- ============================================== -->
@@ -246,5 +305,407 @@
         app:layout_constraintBottom_toTopOf="@id/layoutSkills"
         app:layout_constraintEnd_toEndOf="@id/layoutSkills"
         app:layout_constraintStart_toStartOf="@id/layoutSkills" />
+
+    <!-- ============================================== -->
+    <!-- หลอดเวลาที่เหลือของ Ultimate แบบมีเวลา (อยู่เหนือปุ่ม ULT) -->
+    <!-- ============================================== -->
+    <LinearLayout
+        android:id="@+id/layoutUltTimer"
+        android:layout_width="96dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="4dp"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/btnUltimate"
+        app:layout_constraintEnd_toEndOf="@id/btnUltimate"
+        app:layout_constraintStart_toStartOf="@id/btnUltimate">
+
+        <TextView
+            android:id="@+id/txtUltTimer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:shadowColor="#000000"
+            android:shadowRadius="4"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <ProgressBar
+            android:id="@+id/barUltTime"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="9dp"
+            android:max="1000"
+            android:progress="1000"
+            android:progressBackgroundTint="#55000000"
+            android:progressTint="#F39C12" />
+    </LinearLayout>
+
+    <!-- ============================================== -->
+    <!-- Overlay: โจทย์ Quiz (แทน AlertDialog) -->
+    <!-- ============================================== -->
+    <FrameLayout
+        android:id="@+id/overlayQuiz"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#F00A1420"
+        android:clickable="true"
+        android:elevation="30dp"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/layoutQuizContent"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:paddingHorizontal="28dp"
+            android:paddingVertical="14dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/txtQuizTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="#00ADB5"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/txtQuizTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#F39C12"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <ProgressBar
+                android:id="@+id/barQuizTime"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="10dp"
+                android:layout_marginTop="6dp"
+                android:max="1000"
+                android:progress="1000"
+                android:progressBackgroundTint="#333333"
+                android:progressTint="#F39C12" />
+
+            <!-- โจทย์ยาวแค่ไหนก็ไม่ถูกตัด: ตัวอักษรขึ้นบรรทัดใหม่เอง และเลื่อนได้ถ้ายังเกินพื้นที่ -->
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginTop="10dp"
+                android:layout_weight="1"
+                android:fillViewport="true">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/txtQuizQuestion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="#FFFFFF"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+
+                    <!-- บรรทัดสูตร (ขึ้นต้นด้วย "สูตร:") แยกบรรทัดใต้โจทย์ ขึ้นบรรทัดใหม่เองถ้ายาว ไม่ถูกตัด -->
+                    <TextView
+                        android:id="@+id/txtQuizFormula"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textColor="#F1C40F"
+                        android:textSize="18sp"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </ScrollView>
+
+            <TextView
+                android:id="@+id/txtQuizFeedback"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginVertical="6dp"
+                android:gravity="center"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnQuizOpt1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:minHeight="52dp"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+
+                <Button
+                    android:id="@+id/btnQuizOpt2"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:minHeight="52dp"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnQuizOpt3"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:minHeight="52dp"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+
+                <Button
+                    android:id="@+id/btnQuizOpt4"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:minHeight="52dp"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- เลข 3-2-1 นับถอยหลังก่อนเปิดโจทย์ -->
+        <TextView
+            android:id="@+id/txtQuizCountdown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:shadowColor="#000000"
+            android:shadowRadius="12"
+            android:textColor="#F39C12"
+            android:textSize="110sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <!-- ============================================== -->
+    <!-- Overlay: เมนูหยุดเกมชั่วคราว -->
+    <!-- ============================================== -->
+    <FrameLayout
+        android:id="@+id/overlayPause"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#CC000000"
+        android:clickable="true"
+        android:elevation="30dp"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="280dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:background="#1A252C"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⏸ หยุดเกมชั่วคราว"
+                android:textColor="#FFFFFF"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnPauseResume"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:backgroundTint="#27AE60"
+                android:text="เล่นต่อ"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btnPauseRestart"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:backgroundTint="#2980B9"
+                android:text="เริ่มด่านใหม่"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btnPauseExit"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:backgroundTint="#C0392B"
+                android:text="ออกไปหน้าเลือกด่าน"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- ============================================== -->
+    <!-- Overlay: สอนเล่น (แสดงครั้งแรกที่เข้าด่าน 1) -->
+    <!-- ============================================== -->
+    <FrameLayout
+        android:id="@+id/overlayTutorial"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#E6000000"
+        android:clickable="true"
+        android:elevation="30dp"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:paddingHorizontal="40dp"
+            android:paddingVertical="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:text="📖 วิธีเล่น"
+                android:textColor="#F39C12"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginVertical="10dp"
+                android:layout_weight="1">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:lineSpacingExtra="6dp"
+                    android:text="🕹️ จอยสติ๊ก (มุมซ้ายล่าง): ลากเพื่อว่ายน้ำ ทิศที่ลากคือทิศที่สกิลจะพุ่งหรือยิงไป\n\n🔴🔵 ปุ่มสกิล 1 และ 2 (มุมขวาล่าง): โจมตีศัตรู แต่ละปุ่มมีคูลดาวน์สั้นๆ ชื่อและไอคอนบนปุ่มบอกว่าเป็นสกิลอะไร\n\n📊 หลอด Stack (ตรงกลางบน): ทุกครั้งที่สกิลโดนศัตรู หลอดจะเพิ่ม 1 เมื่อเต็ม 10 จะมีโจทย์ขึ้นมา\n\n❓ โจทย์ Quiz: ตอบถูกจะปลดล็อกปุ่ม ULT สกิลพิเศษที่แรงที่สุด ตอบผิดหรือหมดเวลา Stack จะรีเซ็ต\n\n❤️ HP (มุมซ้ายบน): ถ้า HP หมดจะแพ้ ฆ่าศัตรูให้หมดเพื่อชนะด่าน"
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp" />
+            </ScrollView>
+
+            <Button
+                android:id="@+id/btnTutorialOk"
+                android:layout_width="200dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:backgroundTint="#27AE60"
+                android:text="เข้าใจแล้ว เริ่มเลย!"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- ============================================== -->
+    <!-- Overlay: หน้าจอชนะ / แพ้ (แทน AlertDialog) -->
+    <!-- ============================================== -->
+    <FrameLayout
+        android:id="@+id/overlayResult"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#D9000000"
+        android:clickable="true"
+        android:elevation="30dp"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="320dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:background="#1A252C"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:id="@+id/txtResultTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFFF"
+                android:textSize="26sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/txtResultStars"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textColor="#F1C40F"
+                android:textSize="30sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/txtResultSub"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:textColor="#BDC3C7"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/btnResult1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:backgroundTint="#27AE60"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btnResult2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:backgroundTint="#2980B9"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btnResult3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:backgroundTint="#7F8C8D"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+        </LinearLayout>
+    </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -41,6 +41,52 @@ public class SeaEnemy {
     public boolean isAlive = true;
     public View containerView;
 
+    /** true = ถูกกลืนอยู่ในปากผู้เล่น: AI หยุด ไม่โดนผลักถอย ตำแหน่งถูกควบคุมโดยสกิล */
+    private boolean swallowed = false;
+
+    public boolean isSwallowed() { return swallowed; }
+
+    private float slowFactor = 1f;
+    private long slowUntilMs = 0;
+
+    /** ทำให้เคลื่อนที่ช้าลง (factor 0.5 = เหลือครึ่งหนึ่ง) นาน durationMs ถ้าเรียกซ้ำจะต่อเวลา */
+    public void applySlow(float factor, long durationMs) {
+        slowFactor = factor;
+        slowUntilMs = System.currentTimeMillis() + durationMs;
+        setSlowed(true);
+    }
+
+    public void setSwallowed(boolean value) {
+        swallowed = value;
+        if (value) {
+            cancelAttack();
+        } else {
+            lastStateUpdateTime = System.currentTimeMillis();
+        }
+    }
+
+    private long stunUntilMs = 0;
+
+    public boolean isStunned() { return System.currentTimeMillis() < stunUntilMs; }
+
+    /** สตันนานตามเวลา: ขยับ/โจมตีไม่ได้ (ต่างจาก swallowed ตรงที่โดนดาเมจ/ผลักถอยได้ตามปกติ) */
+    public void stun(long durationMs) {
+        stunUntilMs = Math.max(stunUntilMs, System.currentTimeMillis() + durationMs);
+        setStunned(true);
+        cancelAttack();
+    }
+
+    /** ยกเลิกการโจมตีที่ค้างอยู่ ไม่งั้นตัวอื่นรอคิวโจมตีไม่ได้ */
+    private void cancelAttack() {
+        clearAttackPath();
+        if (activeAttackerId == enemyId) {
+            activeAttackerId = 0;
+            lastAttackEndTime = System.currentTimeMillis();
+        }
+        timeInOrbitMs = 0;
+        currentState = State.ORBIT_AND_WAIT;
+    }
+
     private TextView imgAvatar;
     private ProgressBar barHp;
     private TextView txtHp;
@@ -169,6 +215,23 @@ public class SeaEnemy {
         imgAvatar.setTextSize(36f);
         imgAvatar.setGravity(Gravity.CENTER);
 
+        // แถวไอคอนสถานะเหนือศัตรู: แถวสูง 0 และไอคอนวาดล้นขึ้นด้านบน
+        // เพื่อไม่ให้กรอบตัวศัตรู (ที่ใช้เช็กชน) ใหญ่ขึ้นจากเดิม
+        layout.setClipChildren(false);
+        LinearLayout statusRow = new LinearLayout(ctx.getContext());
+        statusRow.setOrientation(LinearLayout.HORIZONTAL);
+        statusRow.setGravity(Gravity.CENTER);
+        statusRow.setClipChildren(false);
+        statusRow.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, 0));
+        iconCharged = makeStatusIcon("⚡");
+        iconSlowed = makeStatusIcon("🐌");
+        iconStunned = makeStatusIcon("💫");
+        statusRow.addView(iconCharged);
+        statusRow.addView(iconSlowed);
+        statusRow.addView(iconStunned);
+
+        layout.addView(statusRow);
         layout.addView(txtName);
         layout.addView(barHp);
         layout.addView(txtHp);
@@ -183,13 +246,57 @@ public class SeaEnemy {
         }
     }
 
+    // ---------------------------------------------------------
+    // ไอคอนสถานะเหนือศัตรู: ติดประจุ / ช้าลง / สตัน
+    // ---------------------------------------------------------
+    private static final int STATUS_ICON_PX = 36;
+    private TextView iconCharged;
+    private TextView iconSlowed;
+    private TextView iconStunned;
+
+    private TextView makeStatusIcon(String emojiText) {
+        TextView tv = new TextView(ctx.getContext());
+        tv.setText(emojiText);
+        tv.setTextSize(13f);
+        tv.setGravity(Gravity.CENTER);
+        tv.setLayoutParams(new LinearLayout.LayoutParams(STATUS_ICON_PX, STATUS_ICON_PX));
+        tv.setTranslationY(-STATUS_ICON_PX);
+        tv.setVisibility(View.INVISIBLE);
+        return tv;
+    }
+
+    private static void setIcon(TextView icon, boolean visible) {
+        if (icon != null) icon.setVisibility(visible ? View.VISIBLE : View.INVISIBLE);
+    }
+
+    /** ติดประจุ (ผู้เรียก = สกิลที่ทำให้เกิดสถานะนี้ เช่น Swordfish) */
+    public void setCharged(boolean value) { setIcon(iconCharged, value); }
+
+    /** ช้าลง (ปกติไม่ต้องเรียกเอง applySlow จะโชว์ให้ และซ่อนเมื่อหมดเวลา) */
+    public void setSlowed(boolean value) { setIcon(iconSlowed, value); }
+
+    /** สตัน (ปกติไม่ต้องเรียกเอง stun() จะโชว์ให้ และซ่อนเมื่อหมดเวลา) */
+    public void setStunned(boolean value) { setIcon(iconStunned, value); }
+
+    private void refreshStatusIcons(long now) {
+        setSlowed(now < slowUntilMs);
+        setStunned(now < stunUntilMs);
+    }
+
     public void updateAI(float targetX, float targetY) {
-        if (!isAlive || containerView == null || !ctx.isGameRunning() || ctx.isGamePaused()) return;
+        if (!isAlive || swallowed || containerView == null || !ctx.isGameRunning() || ctx.isGamePaused()) return;
 
         long now = System.currentTimeMillis();
+        refreshStatusIcons(now);
+        if (now < stunUntilMs) {
+            // สตัน: ไม่ขยับ ไม่โจมตี (แต่ยังรับดาเมจได้) เก็บเวลาไว้ไม่ให้เฟรมแรกหลังหายสตันกระโดด
+            lastStateUpdateTime = now;
+            return;
+        }
         long dtMs = Math.min(now - lastStateUpdateTime, 100);
         lastStateUpdateTime = now;
-        float dt = dtMs / 1000f;
+        // ติดสโลว์: ทุกการเคลื่อนที่ (เดิน/วนรอบ/พุ่ง) คิดจากเวลาที่ช้าลง
+        float dt = dtMs / 1000f * (now < slowUntilMs ? slowFactor : 1f);
 
         float moveSpeed = BASE_SPEED * speedMultiplier;
 
@@ -371,6 +478,7 @@ public class SeaEnemy {
 
     /** ล็อกทิศ/จุดหมายของการโจมตี แล้วโชว์เส้นทางหรือพื้นที่เตือน */
     private void startWindup(float targetX, float targetY) {
+        SoundManager.play(SoundManager.Sfx.ENEMY_WARN);
         View pv = ctx.getPlayerContainer();
         float ew = containerView.getWidth(), eh = containerView.getHeight();
         float ecx = containerView.getX() + ew / 2f;
@@ -439,9 +547,15 @@ public class SeaEnemy {
     }
 
     public void takeDamage(int damage) {
+        takeDamage(damage, true);
+    }
+
+    /** knockback = false สำหรับสกิลที่ต้องการให้ศัตรูอยู่กับที่ (เช่น วงหวดหนวดที่โดนซ้ำหลายรอบ) */
+    public void takeDamage(int damage, boolean knockback) {
         if (!isAlive || !ctx.isGameRunning() || containerView == null) return;
 
         hp = Math.max(0, hp - damage);
+        SoundManager.play(hp <= 0 ? SoundManager.Sfx.ENEMY_DIE : SoundManager.Sfx.HIT_ENEMY);
         if (barHp != null) barHp.setProgress(hp);
         if (txtHp != null) txtHp.setText(String.format(Locale.US, "%d/%d", hp, maxHp));
 
@@ -449,7 +563,7 @@ public class SeaEnemy {
 
         // 1. แรงดันผลักถอยหลัง (Knockback Effect) เมื่อโดนสกิล
         View player = ctx.getPlayerContainer();
-        if (player != null && containerView != null) {
+        if (knockback && !swallowed && player != null && containerView != null) {
             float px = player.getX();
             float py = player.getY();
             float ex = containerView.getX();
@@ -485,10 +599,13 @@ public class SeaEnemy {
         }
 
         // 3. แฟลชความกะพริบแจ้งเตือนเมื่อโดนความเสียหาย
-        containerView.animate().alpha(0.3f).setDuration(80)
-                .withEndAction(() -> {
-                    if (containerView != null) containerView.animate().alpha(1.0f).setDuration(80).start();
-                }).start();
+        // (ตอนถูกกลืน ไม่กะพริบ เพราะจะรีเซ็ตความโปร่งใสที่สกิลตั้งไว้)
+        if (!swallowed) {
+            containerView.animate().alpha(0.3f).setDuration(80)
+                    .withEndAction(() -> {
+                        if (containerView != null) containerView.animate().alpha(1.0f).setDuration(80).start();
+                    }).start();
+        }
 
         if (hp <= 0) {
             isAlive = false;

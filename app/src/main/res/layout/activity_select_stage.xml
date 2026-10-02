@@ -88,4 +88,40 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.8" />
 
+    <!-- ดาวที่ทำได้ของแต่ละด่าน (ตั้งค่าใน SelectStageActivity) -->
+    <TextView
+        android:id="@+id/txtStars1"
+        style="@style/StageStars"
+        app:layout_constraintEnd_toEndOf="@id/btnStage1"
+        app:layout_constraintStart_toStartOf="@id/btnStage1"
+        app:layout_constraintTop_toBottomOf="@id/btnStage1" />
+
+    <TextView
+        android:id="@+id/txtStars2"
+        style="@style/StageStars"
+        app:layout_constraintEnd_toEndOf="@id/btnStage2"
+        app:layout_constraintStart_toStartOf="@id/btnStage2"
+        app:layout_constraintTop_toBottomOf="@id/btnStage2" />
+
+    <TextView
+        android:id="@+id/txtStars3"
+        style="@style/StageStars"
+        app:layout_constraintEnd_toEndOf="@id/btnStage3"
+        app:layout_constraintStart_toStartOf="@id/btnStage3"
+        app:layout_constraintTop_toBottomOf="@id/btnStage3" />
+
+    <TextView
+        android:id="@+id/txtStars4"
+        style="@style/StageStars"
+        app:layout_constraintEnd_toEndOf="@id/btnStage4"
+        app:layout_constraintStart_toStartOf="@id/btnStage4"
+        app:layout_constraintTop_toBottomOf="@id/btnStage4" />
+
+    <TextView
+        android:id="@+id/txtStars5"
+        style="@style/StageStars"
+        app:layout_constraintEnd_toEndOf="@id/btnStage5"
+        app:layout_constraintStart_toStartOf="@id/btnStage5"
+        app:layout_constraintTop_toBottomOf="@id/btnStage5" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -47,10 +47,25 @@
             android:text="@string/btn_start"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
-            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintBottom_toTopOf="@+id/btnSettings"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/txtTitle" />
+
+        <!-- ปุ่มตั้งค่า (เปิดหน้า SettingsActivity) -->
+        <Button
+            android:id="@+id/btnSettings"
+            android:layout_width="220dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="12dp"
+            android:backgroundTint="#34495E"
+            android:text="⚙ ตั้งค่า"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/btnStart" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- ============================================== -->
@@ -155,6 +170,42 @@
             app:layout_constraintStart_toEndOf="@+id/btnStage4"
             app:layout_constraintTop_toTopOf="@id/btnStage1" />
 
+        <!-- ดาวที่ทำได้ของแต่ละด่าน (อ่านจาก GamePrefs ตั้งค่าใน MainActivity) -->
+        <TextView
+            android:id="@+id/txtStars1"
+            style="@style/StageStars"
+            app:layout_constraintEnd_toEndOf="@id/btnStage1"
+            app:layout_constraintStart_toStartOf="@id/btnStage1"
+            app:layout_constraintTop_toBottomOf="@id/btnStage1" />
+
+        <TextView
+            android:id="@+id/txtStars2"
+            style="@style/StageStars"
+            app:layout_constraintEnd_toEndOf="@id/btnStage2"
+            app:layout_constraintStart_toStartOf="@id/btnStage2"
+            app:layout_constraintTop_toBottomOf="@id/btnStage2" />
+
+        <TextView
+            android:id="@+id/txtStars3"
+            style="@style/StageStars"
+            app:layout_constraintEnd_toEndOf="@id/btnStage3"
+            app:layout_constraintStart_toStartOf="@id/btnStage3"
+            app:layout_constraintTop_toBottomOf="@id/btnStage3" />
+
+        <TextView
+            android:id="@+id/txtStars4"
+            style="@style/StageStars"
+            app:layout_constraintEnd_toEndOf="@id/btnStage4"
+            app:layout_constraintStart_toStartOf="@id/btnStage4"
+            app:layout_constraintTop_toBottomOf="@id/btnStage4" />
+
+        <TextView
+            android:id="@+id/txtStars5"
+            style="@style/StageStars"
+            app:layout_constraintEnd_toEndOf="@id/btnStage5"
+            app:layout_constraintStart_toStartOf="@id/btnStage5"
+            app:layout_constraintTop_toBottomOf="@id/btnStage5" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- ============================================== -->
@@ -215,8 +266,8 @@
                 <!-- ⚔️ ตัวที่ 1: Swordfish -->
                 <LinearLayout
                     android:id="@+id/cardHero1"
-                    android:layout_width="140dp"
-                    android:layout_height="wrap_content"
+                    android:layout_width="160dp"
+                    android:layout_height="match_parent"
                     android:layout_margin="8dp"
                     android:background="#1A252C"
                     android:clickable="true"
@@ -225,8 +276,10 @@
                     android:orientation="vertical"
                     android:padding="12dp">
                     <ImageView
-                        android:layout_width="65dp"
-                        android:layout_height="65dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:adjustViewBounds="true"
                         android:scaleType="fitCenter"
                         android:src="@drawable/hero_1" />
                     <TextView
@@ -248,8 +301,8 @@
                 <!-- 🛡️ ตัวที่ 2: Pufferfish -->
                 <LinearLayout
                     android:id="@+id/cardHero2"
-                    android:layout_width="140dp"
-                    android:layout_height="wrap_content"
+                    android:layout_width="160dp"
+                    android:layout_height="match_parent"
                     android:layout_margin="8dp"
                     android:background="#1A252C"
                     android:clickable="true"
@@ -258,8 +311,10 @@
                     android:orientation="vertical"
                     android:padding="12dp">
                     <ImageView
-                        android:layout_width="65dp"
-                        android:layout_height="65dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:adjustViewBounds="true"
                         android:scaleType="fitCenter"
                         android:src="@drawable/hero_2" />
                     <TextView
@@ -281,8 +336,8 @@
                 <!-- 🔮 ตัวที่ 3: Shark -->
                 <LinearLayout
                     android:id="@+id/cardHero3"
-                    android:layout_width="140dp"
-                    android:layout_height="wrap_content"
+                    android:layout_width="160dp"
+                    android:layout_height="match_parent"
                     android:layout_margin="8dp"
                     android:background="#1A252C"
                     android:clickable="true"
@@ -291,8 +346,10 @@
                     android:orientation="vertical"
                     android:padding="12dp">
                     <ImageView
-                        android:layout_width="65dp"
-                        android:layout_height="65dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:adjustViewBounds="true"
                         android:scaleType="fitCenter"
                         android:src="@drawable/hero_3" />
                     <TextView
@@ -314,8 +371,8 @@
                 <!-- 🐙 ตัวที่ 4: Octopus -->
                 <LinearLayout
                     android:id="@+id/cardHero4"
-                    android:layout_width="140dp"
-                    android:layout_height="wrap_content"
+                    android:layout_width="160dp"
+                    android:layout_height="match_parent"
                     android:layout_margin="8dp"
                     android:background="#1A252C"
                     android:clickable="true"
@@ -324,8 +381,10 @@
                     android:orientation="vertical"
                     android:padding="12dp">
                     <ImageView
-                        android:layout_width="65dp"
-                        android:layout_height="65dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:adjustViewBounds="true"
                         android:scaleType="fitCenter"
                         android:src="@drawable/hero_4" />
                     <TextView
@@ -347,8 +406,8 @@
                 <!-- ⚡ ตัวที่ 5: Electric Eel -->
                 <LinearLayout
                     android:id="@+id/cardHero5"
-                    android:layout_width="140dp"
-                    android:layout_height="wrap_content"
+                    android:layout_width="160dp"
+                    android:layout_height="match_parent"
                     android:layout_margin="8dp"
                     android:background="#1A252C"
                     android:clickable="true"
@@ -357,8 +416,10 @@
                     android:orientation="vertical"
                     android:padding="12dp">
                     <ImageView
-                        android:layout_width="65dp"
-                        android:layout_height="65dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:adjustViewBounds="true"
                         android:scaleType="fitCenter"
                         android:src="@drawable/hero_5" />
                     <TextView
@@ -399,16 +460,17 @@
             <!-- รูปภาพตัวละครขนาดใหญ่ -->
             <ImageView
                 android:id="@+id/imgSelectedHero"
-                android:layout_width="80dp"
+                android:layout_width="140dp"
                 android:layout_height="80dp"
                 android:scaleType="fitCenter"
                 android:src="@drawable/hero_1" />
 
             <!-- ข้อมูลชื่อ วิชา และคำอธิบาย -->
             <LinearLayout
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
+                android:layout_weight="1"
                 android:orientation="vertical">
 
                 <TextView
@@ -439,6 +501,17 @@
                     android:textColor="#BDC3C7"
                     android:textSize="12sp" />
             </LinearLayout>
+
+            <!-- คำอธิบายสกิล 1 / สกิล 2 / Ultimate ของฮีโร่ที่เลือก -->
+            <TextView
+                android:id="@+id/txtSelectedSkills"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1.4"
+                android:lineSpacingExtra="2dp"
+                android:textColor="#ECF0F1"
+                android:textSize="11sp" />
         </LinearLayout>
 
         <!-- ปุ่ม FIGHT! -->

@@ -1,7 +1,6 @@
 package com.example.finfury;
 
 import android.annotation.SuppressLint;
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -18,13 +17,13 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import androidx.appcompat.app.AppCompatActivity;
+import androidx.activity.OnBackPressedCallback;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-public class BattleActivity extends AppCompatActivity implements BattleContext {
+public class BattleActivity extends BaseActivity implements BattleContext {
 
     private FrameLayout gameArea;
     private View playerContainer;
@@ -43,6 +42,8 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
     private float velX, velY, faceScale = -1f, tilt;
     private long lastFrameNs = 0;
     private boolean skillLock = false;
+    private float speedMultiplier = 1f;      // สกิลที่เพิ่มความเร็ว (เช่น Blood Frenzy)
+    private float cooldownMultiplier = 1f;   // สกิลที่ลดคูลดาวน์
     static final float MAX_SPEED = 700f;
     private boolean isFacingRight = true;
 
@@ -53,6 +54,7 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
     private final int maxPlayerHp = 100;
     private int currentStack = 0;
     private static final int MAX_STACK = 10;
+    private static final int MAX_STAGES = 5;
 
     private float playerAngle = 0f;
 
@@ -63,6 +65,12 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
 
     // --- Quiz System (แยกไปอยู่ใน QuizManager.java) ---
     private QuizManager quizManager;
+
+    // --- Overlay ต่างๆ (อยู่ใน activity_battle.xml) ---
+    private View overlayPause;
+    private View overlayResult;
+    private String skill1Label = "Skill 1";
+    private String skill2Label = "Skill 2";
 
     // --- Ultimate Button (ใช้กับฮีโร่ที่ usesUltimateButton() = true) ---
     private Button btnUltimate;
@@ -88,6 +96,96 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
     public void setSkillLock(boolean locked) { skillLock = locked; }
 
     @Override
+    public float getPlayerSpeedRatio() {
+        return Math.min(1f, (float) Math.hypot(velX, velY) / MAX_SPEED);
+    }
+
+    @Override
+    public void setSpeedMultiplier(float multiplier) { speedMultiplier = multiplier; }
+
+    @Override
+    public void setCooldownMultiplier(float multiplier) { cooldownMultiplier = multiplier; }
+
+    // --- หลอดเวลา Ultimate / โบนัสดาเมจ / หลอดชาร์จ (HUD ที่สกิลเรียกใช้) ---
+    private View layoutUltTimer;
+    private ProgressBar barUltTime;
+    private TextView txtUltTimer;
+    private float ultTimerRemainingMs = 0f;
+    private long ultTimerTotalMs = 1;
+    private TextView txtBonusDamage;
+    private ProgressBar barPlayerCharge;
+
+    @Override
+    public void showUltimateDuration(long durationMs) {
+        ultTimerTotalMs = Math.max(1, durationMs);
+        ultTimerRemainingMs = durationMs;
+        updateUltimateTimerUI();
+        layoutUltTimer.setVisibility(View.VISIBLE);
+    }
+
+    @Override
+    public void hideUltimateDuration() {
+        ultTimerRemainingMs = 0f;
+        layoutUltTimer.setVisibility(View.GONE);
+    }
+
+    private void tickUltimateTimer(float dtSec) {
+        if (ultTimerRemainingMs <= 0f) return;
+        ultTimerRemainingMs -= dtSec * 1000f;
+        if (ultTimerRemainingMs <= 0f) {
+            hideUltimateDuration();
+        } else {
+            updateUltimateTimerUI();
+        }
+    }
+
+    @SuppressLint("SetTextI18n")
+    private void updateUltimateTimerUI() {
+        barUltTime.setProgress((int) (ultTimerRemainingMs * 1000f / ultTimerTotalMs));
+        txtUltTimer.setText(String.format(Locale.US, "%s %.1fs",
+                playerHero.getUltimateName(), Math.max(0f, ultTimerRemainingMs) / 1000f));
+    }
+
+    @Override
+    public void setPlayerBonusDamage(int bonus) {
+        txtBonusDamage.setText("+" + bonus);
+        txtBonusDamage.setVisibility(View.VISIBLE);
+        updatePlayerOverlays();
+    }
+
+    @Override
+    public void clearPlayerBonusDamage() {
+        txtBonusDamage.setVisibility(View.GONE);
+    }
+
+    @Override
+    public void setPlayerChargeProgress(float progress) {
+        barPlayerCharge.setProgress((int) (Math.max(0f, Math.min(1f, progress)) * 1000));
+        barPlayerCharge.setVisibility(View.VISIBLE);
+        updatePlayerOverlays();
+    }
+
+    @Override
+    public void hidePlayerChargeBar() {
+        barPlayerCharge.setVisibility(View.GONE);
+    }
+
+    /** ย้ายตัวเลขโบนัส/หลอดชาร์จให้อยู่เหนือหัวผู้เล่นเสมอ */
+    private void updatePlayerOverlays() {
+        if (playerContainer == null) return;
+        float cx = playerContainer.getX() + playerContainer.getWidth() / 2f;
+        float top = playerContainer.getY();
+        if (txtBonusDamage.getVisibility() == View.VISIBLE) {
+            txtBonusDamage.setX(cx - txtBonusDamage.getWidth() / 2f);
+            txtBonusDamage.setY(top - txtBonusDamage.getHeight() - 4f);
+        }
+        if (barPlayerCharge.getVisibility() == View.VISIBLE) {
+            barPlayerCharge.setX(cx - barPlayerCharge.getWidth() / 2f);
+            barPlayerCharge.setY(top - barPlayerCharge.getHeight() - 8f);
+        }
+    }
+
+    @Override
     public boolean isGameRunning() { return isGameRunning; }
 
     @Override
@@ -97,7 +195,10 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
     public List<SeaEnemy> getEnemies() { return enemyList; }
 
     @Override
-    public void onEnemyDefeated() { checkWinCondition(); }
+    public void onEnemyDefeated() {
+        updateStageInfo();
+        checkWinCondition();
+    }
 
     @Override
     public void onUltimateFinished() {
@@ -113,6 +214,7 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        SoundManager.init(this);
         setContentView(R.layout.activity_battle);
 
         currentHeroId = getIntent().getIntExtra("HERO_ID", 1);
@@ -133,9 +235,18 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
             barPlayerHp.setMax(maxPlayerHp);
             barPlayerHp.setProgress(playerHp);
         }
+        updateHpUI();
 
-        ImageButton btnBack = findViewById(R.id.btnBack);
-        if (btnBack != null) btnBack.setOnClickListener(v -> finish());
+        // ปุ่มมุมขวาบนเป็นปุ่มหยุดเกม (เปิดเมนู เล่นต่อ / เริ่มใหม่ / ออก) แทนการออกทันที
+        ImageButton btnPause = findViewById(R.id.btnBack);
+        if (btnPause != null) btnPause.setOnClickListener(v -> openPauseMenu());
+        setupOverlays();
+
+        layoutUltTimer = findViewById(R.id.layoutUltTimer);
+        barUltTime = findViewById(R.id.barUltTime);
+        txtUltTimer = findViewById(R.id.txtUltTimer);
+        txtBonusDamage = findViewById(R.id.txtBonusDamage);
+        barPlayerCharge = findViewById(R.id.barPlayerCharge);
 
         View joystickBase = findViewById(R.id.joystickBase);
         joystickKnob = findViewById(R.id.joystickKnob);
@@ -179,10 +290,17 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
         Button btnSkill1 = findViewById(R.id.btnSkill1);
         Button btnSkill2 = findViewById(R.id.btnSkill2);
 
+        // ชื่อ + ไอคอนสกิลตามฮีโร่ที่เลือก (ใช้ซ้ำตอนคืนข้อความหลังคูลดาวน์)
+        skill1Label = playerHero.getSkill1Icon() + "\n" + playerHero.getSkill1Name();
+        skill2Label = playerHero.getSkill2Icon() + "\n" + playerHero.getSkill2Name();
+        if (btnSkill1 != null) btnSkill1.setText(skill1Label);
+        if (btnSkill2 != null) btnSkill2.setText(skill2Label);
+
         if (btnSkill1 != null) {
             btnSkill1.setOnClickListener(v -> {
                 if (!canUseSkill()) return;
-                startCooldownUI(btnSkill1, "Skill 1");
+                SoundManager.play(SoundManager.Sfx.SKILL1);
+                startCooldownUI(btnSkill1, skill1Label);
                 animateButton(btnSkill1);
                 playerHero.useSkill1(this);
             });
@@ -190,7 +308,8 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
         if (btnSkill2 != null) {
             btnSkill2.setOnClickListener(v -> {
                 if (!canUseSkill()) return;
-                startCooldownUI(btnSkill2, "Skill 2");
+                SoundManager.play(SoundManager.Sfx.SKILL2);
+                startCooldownUI(btnSkill2, skill2Label);
                 animateButton(btnSkill2);
                 playerHero.useSkill2(this);
             });
@@ -206,6 +325,7 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
                 ultimateRunning = true;
                 updateUltimateButton();
                 animateButton(btnUltimate);
+                SoundManager.play(SoundManager.Sfx.ULTIMATE);
                 playerHero.executeUltimateSkill(this);
             });
         }
@@ -217,7 +337,9 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
         if (gameArea != null) {
             gameArea.post(() -> {
                 spawn5SeaEnemies();
+                updateStageInfo();
                 startGameLoop();
+                showTutorialIfFirstTime();
             });
         }
     }
@@ -246,6 +368,8 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
 
             if (!isGamePaused) {
                 updateFish(dt);
+                updatePlayerOverlays();
+                tickUltimateTimer(dt);
 
                 if (playerContainer != null) {
                     // getX()/getY() รวม translation ไว้แล้ว ห้ามบวก getTranslationX/Y ซ้ำ
@@ -269,8 +393,8 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
         if (playerContainer == null || imgPlayer == null) return;
 
         float k = 1f - (float) Math.exp(-8f * dt);
-        float targetVx = skillLock ? 0f : moveX * MAX_SPEED;
-        float targetVy = skillLock ? 0f : moveY * MAX_SPEED;
+        float targetVx = skillLock ? 0f : moveX * MAX_SPEED * speedMultiplier;
+        float targetVy = skillLock ? 0f : moveY * MAX_SPEED * speedMultiplier;
         velX += (targetVx - velX) * k;
         velY += (targetVy - velY) * k;
 
@@ -335,7 +459,7 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
     private void startCooldownUI(Button btn, String originalText) {
         if (btn == null) return;
         btn.setEnabled(false);
-        new CountDownTimer(500, 100) {
+        new CountDownTimer((long) (500 * cooldownMultiplier), 100) {
             @Override
             public void onTick(long millisUntilFinished) {
                 btn.setText(String.format(Locale.US, "%.1f", millisUntilFinished / 1000.0f));
@@ -363,6 +487,9 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
 
         playerHp = Math.max(0, playerHp - damage);
         if (barPlayerHp != null) barPlayerHp.setProgress(playerHp);
+        updateHpUI();
+        // HP หมด = เสียงแพ้แทนเสียงโดนตี
+        SoundManager.play(playerHp <= 0 ? SoundManager.Sfx.LOSE : SoundManager.Sfx.PLAYER_HURT);
 
         if (playerContainer != null) {
             playerContainer.setAlpha(0.5f);
@@ -373,13 +500,163 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
 
         if (playerHp <= 0) {
             isGameRunning = false;
-            new AlertDialog.Builder(this)
-                    .setTitle("Game Over")
-                    .setMessage("คุณตายแล้วเริ่มต้นใหม่")
-                    .setCancelable(false)
-                    .setPositiveButton("OK", (dialog, which) -> recreate())
-                    .show();
+            showResultOverlay(false, 0);
         }
+    }
+
+    // =========================================================
+    // HUD: ตัวเลข HP / ด่านและศัตรูที่เหลือ
+    // =========================================================
+    private void updateHpUI() {
+        TextView txtHpValue = findViewById(R.id.txtHpValue);
+        if (txtHpValue != null) {
+            txtHpValue.setText(String.format(Locale.US, "%d/%d", playerHp, maxPlayerHp));
+        }
+    }
+
+    private void updateStageInfo() {
+        TextView txtStageInfo = findViewById(R.id.txtStageInfo);
+        if (txtStageInfo == null) return;
+        int alive = 0;
+        for (SeaEnemy e : enemyList) {
+            if (e.isAlive) alive++;
+        }
+        txtStageInfo.setText(String.format(Locale.US, "ด่าน %d  |  ศัตรูเหลือ %d ตัว", currentStageId, alive));
+    }
+
+    // =========================================================
+    // ดาวต่อด่าน: 3 ดาว = HP เหลือ >= 70%, 2 ดาว = >= 35%, ไม่งั้น 1 ดาว  (เก็บสถิติดีที่สุดต่อด่าน)
+    // =========================================================
+    private int starsForRemainingHp() {
+        float ratio = playerHp / (float) maxPlayerHp;
+        if (ratio >= 0.70f) return 3;
+        if (ratio >= 0.35f) return 2;
+        return 1;
+    }
+
+    // =========================================================
+    // Overlay: สอนเล่น (ครั้งแรกที่เข้าด่าน 1)
+    // =========================================================
+    private void showTutorialIfFirstTime() {
+        SharedPreferences prefs = getSharedPreferences("GamePrefs", MODE_PRIVATE);
+        if (currentStageId != 1 || prefs.getBoolean("tutorial_seen", false)) return;
+
+        View overlay = findViewById(R.id.overlayTutorial);
+        isGamePaused = true;
+        resetJoystick();
+        overlay.setVisibility(View.VISIBLE);
+        findViewById(R.id.btnTutorialOk).setOnClickListener(v -> {
+            prefs.edit().putBoolean("tutorial_seen", true).apply();
+            overlay.setVisibility(View.GONE);
+            isGamePaused = false;
+        });
+    }
+
+    // =========================================================
+    // Overlay: เมนูหยุดเกม / หน้าจอชนะ-แพ้
+    // =========================================================
+    private void setupOverlays() {
+        overlayPause = findViewById(R.id.overlayPause);
+        overlayResult = findViewById(R.id.overlayResult);
+
+        findViewById(R.id.btnPauseResume).setOnClickListener(v -> closePauseMenu());
+        findViewById(R.id.btnPauseRestart).setOnClickListener(v -> restartStage());
+        findViewById(R.id.btnPauseExit).setOnClickListener(v -> returnToLevelSelect());
+
+        // ปุ่ม Back ของเครื่อง: เปิดเมนูหยุดเกม / ถ้าเมนูเปิดอยู่ให้เล่นต่อ (ระหว่างขึ้นโจทย์หรือหน้าจอผลลัพธ์ไม่ทำอะไร)
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (overlayPause.getVisibility() == View.VISIBLE) closePauseMenu();
+                else openPauseMenu();
+            }
+        });
+    }
+
+    /** มี overlay อื่นเปิดอยู่ (โจทย์ / ผลลัพธ์ / เมนูหยุด) จึงไม่ควรเปิดเมนูหยุดซ้อน */
+    private boolean isOverlayOpen() {
+        return (quizManager != null && quizManager.isShowing())
+                || overlayPause.getVisibility() == View.VISIBLE
+                || overlayResult.getVisibility() == View.VISIBLE
+                || findViewById(R.id.overlayTutorial).getVisibility() == View.VISIBLE;
+    }
+
+    private void openPauseMenu() {
+        if (!isGameRunning || isOverlayOpen()) return;
+        isGamePaused = true;
+        resetJoystick();
+        overlayPause.setVisibility(View.VISIBLE);
+    }
+
+    private void closePauseMenu() {
+        overlayPause.setVisibility(View.GONE);
+        isGamePaused = false;
+    }
+
+    private void restartStage() {
+        recreate();
+    }
+
+    private void showResultOverlay(boolean win, int stars) {
+        resetJoystick();
+        TextView title = findViewById(R.id.txtResultTitle);
+        TextView sub = findViewById(R.id.txtResultSub);
+        TextView txtStars = findViewById(R.id.txtResultStars);
+        if (win) {
+            txtStars.setText(GameProgress.starsText(stars));
+            txtStars.setVisibility(View.VISIBLE);
+        } else {
+            txtStars.setVisibility(View.GONE);
+        }
+        Button b1 = findViewById(R.id.btnResult1);
+        Button b2 = findViewById(R.id.btnResult2);
+        Button b3 = findViewById(R.id.btnResult3);
+
+        if (win) {
+            title.setText("🎉 ชนะแล้ว!");
+            title.setTextColor(0xFF2ECC71);
+            sub.setText("ผ่านด่าน " + currentStageId);
+            if (currentStageId < MAX_STAGES) {
+                setResultButton(b1, "ด่านถัดไป ▶", this::goToNextStage);
+                setResultButton(b2, "เล่นอีกครั้ง", this::restartStage);
+                setResultButton(b3, "เลือกด่าน", this::returnToLevelSelect);
+            } else {
+                // ด่านสุดท้าย ไม่มีด่านถัดไป
+                setResultButton(b1, "เล่นอีกครั้ง", this::restartStage);
+                setResultButton(b2, "เลือกด่าน", this::returnToLevelSelect);
+                b3.setVisibility(View.GONE);
+            }
+        } else {
+            title.setText("💀 แพ้แล้ว");
+            title.setTextColor(0xFFE74C3C);
+            sub.setText("HP หมด ลองสู้ใหม่อีกครั้ง");
+            setResultButton(b1, "เล่นอีกครั้ง", this::restartStage);
+            setResultButton(b2, "เลือกด่าน", this::returnToLevelSelect);
+            b3.setVisibility(View.GONE);
+        }
+        overlayResult.setVisibility(View.VISIBLE);
+    }
+
+    private static void setResultButton(Button b, String text, Runnable action) {
+        b.setVisibility(View.VISIBLE);
+        b.setText(text);
+        b.setOnClickListener(v -> action.run());
+    }
+
+    private void goToNextStage() {
+        Intent intent = new Intent(this, BattleActivity.class);
+        intent.putExtra("HERO_ID", currentHeroId);
+        intent.putExtra("STAGE_ID", currentStageId + 1);
+        startActivity(intent);
+        finish();
+    }
+
+    private void returnToLevelSelect() {
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.putExtra("SHOW_LEVEL_SELECT", true);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);
+        finish();
     }
 
     private void checkWinCondition() {
@@ -392,6 +669,7 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
         }
 
         if (allDead && isGameRunning) {
+            SoundManager.play(SoundManager.Sfx.WIN);
             isGameRunning = false;
 
             SharedPreferences prefs = getSharedPreferences("GamePrefs", MODE_PRIVATE);
@@ -401,40 +679,39 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
                 prefs.edit().putInt("unlocked_stage", currentStageId + 1).apply();
             }
 
-            new AlertDialog.Builder(this)
-                    .setTitle("Victory!")
-                    .setMessage("ชนะไปด่านถัดไป")
-                    .setCancelable(false)
-                    .setPositiveButton("OK", (dialog, which) -> {
-                        Intent intent = new Intent(BattleActivity.this, SelectStageActivity.class);
-                        intent.putExtra("HERO_ID", currentHeroId);
-                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                        startActivity(intent);
-                        finish();
-                    })
-                    .show();
+            // ดาวตาม HP ที่เหลือ เก็บเฉพาะสถิติที่ดีที่สุดของด่านนี้
+            int stars = starsForRemainingHp();
+            GameProgress.saveBestStars(this, currentStageId, stars);
+            showResultOverlay(true, stars);
         }
     }
 
     private void setupQuiz() {
-        quizManager = new QuizManager(this, "Calculus", QuizManager.calculusQuestions(),
+        // ชุดโจทย์ตามวิชาของฮีโร่ที่เลือก (QuestionBank เป็นแหล่งคำถามเดียว)
+        String subject = playerHero.getSubject();
+        quizManager = new QuizManager(this, findViewById(R.id.overlayQuiz), subject,
+                QuestionBank.forSubject(subject),
                 new QuizManager.Listener() {
                     @Override
                     public void onQuizShown() {
+                        SoundManager.play(SoundManager.Sfx.QUIZ_SHOW);
                         isGamePaused = true;
                         resetJoystick();
                     }
 
                     @Override
                     public void onCorrect() {
+                        SoundManager.play(SoundManager.Sfx.QUIZ_CORRECT);
                         if (playerHero.usesUltimateButton()) {
                             // ตอบถูก -> แค่ปลดล็อกปุ่ม ULT ให้ผู้เล่นกดเองตอนไหนก็ได้
                             isGamePaused = false;
                             ultimateReady = true;
                             updateUltimateButton();
+                            SoundManager.play(SoundManager.Sfx.ULT_READY);
                             return;
                         }
                         // ฮีโร่อื่น: ตอบถูก -> ปล่อย Ultimate อัตโนมัติ (แบบเดิม)
+                        SoundManager.play(SoundManager.Sfx.ULTIMATE);
                         ultimateRunning = true;
                         new Handler(Looper.getMainLooper()).postDelayed(() -> {
                             isGamePaused = false;
@@ -445,11 +722,13 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
 
                     @Override
                     public void onWrong() {
+                        SoundManager.play(SoundManager.Sfx.QUIZ_WRONG);
                         resetStackAfterQuiz();
                     }
 
                     @Override
                     public void onTimeout() {
+                        SoundManager.play(SoundManager.Sfx.QUIZ_WRONG);
                         resetStackAfterQuiz();
                     }
                 });
@@ -510,6 +789,18 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
         button.animate().scaleX(0.85f).scaleY(0.85f).setDuration(80).withEndAction(() ->
                 button.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
         ).start();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        SoundManager.playMusic(this, "bgm_battle");
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        SoundManager.pauseMusic();
     }
 
     @Override

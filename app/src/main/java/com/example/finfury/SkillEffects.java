@@ -111,6 +111,144 @@ public final class SkillEffects {
     }
 
     // ---------------------------------------------------------
+    // พองตัวขึ้น ศัตรูที่ชนตัวที่พองจะโดนดาเมจ (ตัวละ 1 ครั้ง) ค้างไว้ครู่หนึ่งแล้วยุบกลับ
+    // ---------------------------------------------------------
+    public static void inflate(BattleContext ctx, float scale, long holdMs, int damage) {
+        FrameLayout gameArea = ctx.getGameArea();
+        View player = ctx.getPlayerContainer();
+        if (gameArea == null || player == null) return;
+
+        ctx.setSkillLock(true);
+
+        final List<SeaEnemy> hitEnemies = new ArrayList<>();
+
+        ValueAnimator puff = ValueAnimator.ofFloat(1f, scale);
+        puff.setDuration(250);
+        puff.setInterpolator(new DecelerateInterpolator());
+        puff.addUpdateListener(animation -> {
+            float s = (float) animation.getAnimatedValue();
+            player.setScaleX(s);
+            player.setScaleY(s);
+
+            // scale ไม่เปลี่ยน getX()/getWidth() จึงเช็กชนจากกรอบที่ขยายแล้วเอง
+            float cx = player.getX() + player.getWidth() / 2f;
+            float cy = player.getY() + player.getHeight() / 2f;
+            float halfW = player.getWidth() * s / 2f;
+            float halfH = player.getHeight() * s / 2f;
+
+            for (SeaEnemy enemy : ctx.getEnemies()) {
+                if (enemy.isAlive && enemy.containerView != null
+                        && !hitEnemies.contains(enemy)) {
+                    View ev = enemy.containerView;
+                    float ex = ev.getX() + ev.getWidth() / 2f;
+                    float ey = ev.getY() + ev.getHeight() / 2f;
+                    if (Math.abs(ex - cx) < halfW + ev.getWidth() / 2f
+                            && Math.abs(ey - cy) < halfH + ev.getHeight() / 2f) {
+                        hitEnemies.add(enemy);
+                        enemy.takeDamage(damage);
+                        ctx.onHitEnemySuccess();
+                    }
+                }
+            }
+        });
+        puff.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                new Handler(Looper.getMainLooper()).postDelayed(() ->
+                        player.animate().scaleX(1f).scaleY(1f).setDuration(300)
+                                .withEndAction(() -> ctx.setSkillLock(false)).start(),
+                        holdMs);
+            }
+        });
+        puff.start();
+    }
+
+    // ---------------------------------------------------------
+    // พ่นพิษออกจากปากเป็นลำฟุ้งไปตามทิศของจอยสติ๊ก ศัตรูที่อยู่ในรูปกรวยโดนดาเมจ (ตัวละ 1 ครั้ง)
+    // ---------------------------------------------------------
+    public static void venomSpray(BattleContext ctx, float range, float coneDeg,
+                                  long durationMs, int damage) {
+        FrameLayout gameArea = ctx.getGameArea();
+        View player = ctx.getPlayerContainer();
+        if (gameArea == null || player == null) return;
+
+        final float angle = ctx.getPlayerAngle();
+        final float rad = (float) Math.toRadians(angle);
+        final float dirX = (float) Math.cos(rad);
+        final float dirY = (float) Math.sin(rad);
+        final float halfCone = coneDeg / 2f;
+
+        // ปากอยู่ที่ขอบตัวปลาด้านที่หัน (ตัวที่พองอยู่ก็ใช้ขนาดตามจริง)
+        final float mouthReach = player.getWidth() * player.getScaleX() / 2f;
+        final float originX = player.getX() + player.getWidth() / 2f + dirX * mouthReach;
+        final float originY = player.getY() + player.getHeight() / 2f + dirY * mouthReach;
+
+        // ม่วงล้วน หลายเฉดเพื่อให้ละอองดูมีมิติ
+        final int[] colors = {0xAA9C27B0, 0xAA7B1FA2, 0xAAAB47BC, 0xAA6A1B9A};
+        final java.util.Random rnd = new java.util.Random();
+        final List<SeaEnemy> hitEnemies = new ArrayList<>();
+
+        ValueAnimator spray = ValueAnimator.ofFloat(0f, 1f);
+        spray.setDuration(durationMs);
+        spray.setInterpolator(new LinearInterpolator());
+        spray.addUpdateListener(animation -> {
+            // พ่นละอองหลายเม็ดต่อเฟรม แต่ละเม็ดกระจายในมุมกรวยแล้วลอยออกไปจางหาย
+            for (int i = 0; i < 3; i++) {
+                float a = (float) Math.toRadians(angle + (rnd.nextFloat() - 0.5f) * coneDeg);
+                float dist = range * (0.5f + rnd.nextFloat() * 0.5f);
+                int size = 30 + rnd.nextInt(40);
+
+                View puff = new View(gameArea.getContext());
+                android.graphics.drawable.GradientDrawable bg =
+                        new android.graphics.drawable.GradientDrawable();
+                bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+                bg.setColor(colors[rnd.nextInt(colors.length)]);
+                puff.setBackground(bg);
+                puff.setLayoutParams(new FrameLayout.LayoutParams(size, size));
+                puff.setX(originX - size / 2f);
+                puff.setY(originY - size / 2f);
+                puff.setScaleX(0.4f);
+                puff.setScaleY(0.4f);
+                gameArea.addView(puff);
+
+                puff.animate()
+                        .translationXBy((float) Math.cos(a) * dist)
+                        .translationYBy((float) Math.sin(a) * dist)
+                        .scaleX(2f).scaleY(2f).alpha(0f)
+                        .setDuration(450 + rnd.nextInt(200))
+                        .setInterpolator(new DecelerateInterpolator())
+                        .withEndAction(() -> gameArea.removeView(puff))
+                        .start();
+            }
+
+            // ลำพิษยาวขึ้นตามเวลา เช็กศัตรูในกรวยเท่าความยาวปัจจุบัน
+            float reach = range * Math.min(1f, animation.getAnimatedFraction() * 2.5f);
+            for (SeaEnemy enemy : ctx.getEnemies()) {
+                if (!enemy.isAlive || enemy.containerView == null || hitEnemies.contains(enemy)) {
+                    continue;
+                }
+                View ev = enemy.containerView;
+                float dx = ev.getX() + ev.getWidth() / 2f - originX;
+                float dy = ev.getY() + ev.getHeight() / 2f - originY;
+                float dist = (float) Math.hypot(dx, dy);
+                if (dist > reach + ev.getWidth() / 2f) continue;
+
+                float diff = (float) Math.toDegrees(Math.atan2(dy, dx)) - angle;
+                while (diff > 180f) diff -= 360f;
+                while (diff < -180f) diff += 360f;
+                // ศัตรูตัวใหญ่ ขยายมุมที่ยอมรับตามระยะ (ใกล้ๆ ก็ไม่หลุดกรวย)
+                float slack = (float) Math.toDegrees(Math.atan2(ev.getWidth() / 2f, Math.max(dist, 1f)));
+                if (Math.abs(diff) <= halfCone + slack) {
+                    hitEnemies.add(enemy);
+                    enemy.takeDamage(damage);
+                    ctx.onHitEnemySuccess();
+                }
+            }
+        });
+        spray.start();
+    }
+
+    // ---------------------------------------------------------
     // ยิงกระสุนไปตามทิศของจอยสติ๊ก โดนศัตรูตัวแรกแล้วหายไป
     // ---------------------------------------------------------
     public static void projectile(BattleContext ctx, int iconResId, long duration,

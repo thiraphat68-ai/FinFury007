@@ -26,4 +26,20 @@ public abstract class Hero {
      * false = ปล่อย Ultimate อัตโนมัติทันทีหลังตอบถูก (แบบเดิม)
      */
     public boolean usesUltimateButton() { return false; }
+
+    // ---------------------------------------------------------
+    // ชื่อ / ไอคอน / คำอธิบายสกิล (ใช้บนปุ่มในการต่อสู้ และหน้าเลือกฮีโร่)
+    // ไอคอนเป็นอีโมจิ ไม่ต้องมีไฟล์ภาพ ฮีโร่แต่ละตัว override ให้ตรงกับสกิลของตัวเอง
+    // ---------------------------------------------------------
+    public String getSkill1Name() { return "Skill 1"; }
+    public String getSkill1Icon() { return "⚔️"; }
+    public String getSkill1Description() { return ""; }
+
+    public String getSkill2Name() { return "Skill 2"; }
+    public String getSkill2Icon() { return "🌀"; }
+    public String getSkill2Description() { return ""; }
+
+    public String getUltimateName() { return "Ultimate"; }
+    public String getUltimateIcon() { return "💥"; }
+    public String getUltimateDescription() { return ""; }
 }
