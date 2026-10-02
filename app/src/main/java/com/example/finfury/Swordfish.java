@@ -7,6 +7,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
@@ -97,15 +98,16 @@ public class Swordfish extends Hero {
 
     @Override public String getSkill1Name() { return "Charge Bite"; }
     @Override public String getSkill1Icon() { return "⚡"; }
-    @Override public String getSkill1Description() { return "พุ่งกัด 350 px ดาเมจ 3 ศัตรูที่โดนจะติดประจุ 4 วินาที"; }
+    @Override public String getSkill1Description() { return "พุ่งกัด สร้างดาเมจ 3 หน่วย ศัตรูที่โดนจะติดประจุ 4 วินาที"; }
 
     @Override public String getSkill2Name() { return "Discharge"; }
     @Override public String getSkill2Icon() { return "🔋"; }
-    @Override public String getSkill2Description() { return "ยิงคลื่นไฟฟ้า ดาเมจ 2 ถ้าโดนศัตรูที่ติดประจุจากอีกสกิล ประจุระเบิด 5 ดาเมจและกระโดดไปตัวใกล้สุด"; }
+    @Override public String getSkill2Description() {
+        return "ยิงคลื่นไฟฟ้า ดาเมจ 2 หน่วย ถ้าโดนศัตรูที่ติดประจุจากอีกสกิล ประจุระเบิด 5 ดาเมจและกระโดดไปตัวใกล้สุด"; }
 
     @Override public String getUltimateName() { return "Circuit Link"; }
     @Override public String getUltimateIcon() { return "🔗"; }
-    @Override public String getUltimateDescription() { return "ต่อศัตรูทั้งหมดเป็นวงจร 5 วินาที โดนตัวไหนตัวอื่นโดนด้วย"; }
+    @Override public String getUltimateDescription() { return "ต่อศัตรูทั้งหมดเป็นวงจร 5 วินาที โจมตีโดนตัวไหนตัวอื่นโดนด้วย"; }
 
     // =========================================================
     // Skill 1: Charge Bite พุ่งกัดไปตามทิศจอยสติ๊ก ดาเมจ 3 + ติดประจุ
@@ -150,6 +152,7 @@ public class Swordfish extends Hero {
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         gameArea.addView(streak);
 
+        final long[] sparkTimer = {0};   // เสกประกายไม่ถี่กว่า 40 ms
         ValueAnimator dash = ValueAnimator.ofFloat(0f, 1f);
         dash.setDuration(DASH_DURATION_MS);
         dash.setInterpolator(new DecelerateInterpolator());
@@ -162,10 +165,11 @@ public class Swordfish extends Hero {
             float cx = player.getX() + player.getWidth() / 2f;
             float cy = player.getY() + player.getHeight() / 2f;
             streak.setHead(cx, cy);
-            spawnSpark(gameArea, cx, cy, player.getHeight() * 0.5f, 0xCCFFF59D);
+            if (GhostPool.due(sparkTimer)) spawnSpark(gameArea, cx, cy, player.getHeight() * 0.5f, 0xCCFFF59D);
 
             // ชนศัตรูตัวไหนก็ทำดาเมจ ตัวละ 1 ครั้ง แล้วพุ่งต่อทะลุไปเลย
-            for (SeaEnemy enemy : ctx.getEnemies()) {
+            for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+                SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
                 if (enemy.isAlive && enemy.containerView != null
                         && !hitEnemies.contains(enemy)
                         && isColliding(player, enemy.containerView)) {
@@ -219,6 +223,7 @@ public class Swordfish extends Hero {
         gameArea.addView(projectile);
         spawnRing(gameArea, mouthX, mouthY, 90f, Color.parseColor("#FFF9C4"));
 
+        final long[] sparkTimer = {0};   // เสกประกายไม่ถี่กว่า 40 ms
         ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
         animator.setDuration(PROJECTILE_DURATION_MS);
         animator.setInterpolator(new LinearInterpolator());
@@ -235,9 +240,10 @@ public class Swordfish extends Hero {
             // หางไฟฟ้า: ประกายหลุดจากท้ายคลื่น
             float tailX = projectile.getX() + BOLT_LENGTH / 2f - dirX * BOLT_LENGTH * 0.4f;
             float tailY = projectile.getY() + BOLT_THICKNESS / 2f - dirY * BOLT_LENGTH * 0.4f;
-            spawnSpark(gameArea, tailX, tailY, BOLT_THICKNESS * 1.1f, 0x88FFEB3B);
+            if (GhostPool.due(sparkTimer)) spawnSpark(gameArea, tailX, tailY, BOLT_THICKNESS * 1.1f, 0x88FFEB3B);
 
-            for (SeaEnemy enemy : ctx.getEnemies()) {
+            for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+                SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
                 if (enemy.isAlive && enemy.containerView != null
                         && isColliding(projectile, enemy.containerView)) {
                     hasHit[0] = true;
@@ -317,7 +323,8 @@ public class Swordfish extends Hero {
     private void arcToNearest(BattleContext ctx, SeaEnemy from, float fx, float fy) {
         SeaEnemy best = null;
         float bestDist = Float.MAX_VALUE;
-        for (SeaEnemy e : ctx.getEnemies()) {
+        for (int eIdx = 0; eIdx < ctx.getEnemies().size(); eIdx++) {
+            SeaEnemy e = ctx.getEnemies().get(eIdx);
             if (e == from || !e.isAlive || e.containerView == null) continue;
             float d = (float) Math.hypot(
                     e.containerView.getX() + e.containerView.getWidth() / 2f - fx,
@@ -402,7 +409,8 @@ public class Swordfish extends Hero {
         endLink();
 
         linked.clear();
-        for (SeaEnemy e : ctx.getEnemies()) {
+        for (int eIdx = 0; eIdx < ctx.getEnemies().size(); eIdx++) {
+            SeaEnemy e = ctx.getEnemies().get(eIdx);
             if (e.isAlive && e.containerView != null) linked.add(e);
         }
         if (linked.isEmpty()) {
@@ -546,18 +554,10 @@ public class Swordfish extends Hero {
 
     /** ประกายกลมเล็กๆ หดและจางหายอยู่กับที่ ทิ้งไว้เป็นหางตามเส้นทาง */
     private static void spawnSpark(FrameLayout area, float cx, float cy, float size, int color) {
-        View spark = new View(area.getContext());
-        GradientDrawable bg = new GradientDrawable();
-        bg.setShape(GradientDrawable.OVAL);
-        bg.setColor(color);
-        spark.setBackground(bg);
+        // ใช้วงกลมจากกองที่ใช้ซ้ำ (ไม่สร้าง View ใหม่ทุกประกาย)
         int d = Math.max(8, (int) size);
-        spark.setLayoutParams(new FrameLayout.LayoutParams(d, d));
-        spark.setX(cx - d / 2f + (float) (Math.random() * 10 - 5));
-        spark.setY(cy - d / 2f + (float) (Math.random() * 10 - 5));
-        area.addView(spark);
-        spark.animate().alpha(0f).scaleX(0.2f).scaleY(0.2f).setDuration(300)
-                .withEndAction(() -> area.removeView(spark)).start();
+        GhostPool.ghosts(area).spark(cx + (float) (Math.random() * 10 - 5),
+                cy + (float) (Math.random() * 10 - 5), d, color, 300);
     }
 
     /** ฟ้าผ่าสั้นๆ ระหว่างสองจุด แสดงแวบเดียวแล้วจาง */
@@ -577,7 +577,8 @@ public class Swordfish extends Hero {
         float nx = -dy / len, ny = dx / len;
         int steps = Math.max(2, (int) (len / 45f));
 
-        Path path = new Path();
+        Path path = JAGGED_PATH;   // Path เดียวใช้ซ้ำ (วาดบนเธรด UI เท่านั้น)
+        path.reset();
         path.moveTo(x0, y0);
         for (int i = 1; i < steps; i++) {
             float t = i / (float) steps;
@@ -588,6 +589,8 @@ public class Swordfish extends Hero {
         canvas.drawPath(path, glow);
         canvas.drawPath(path, core);
     }
+
+    private static final Path JAGGED_PATH = new Path();
 
     private static Paint strokePaint(int color, float width) {
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -654,6 +657,7 @@ public class Swordfish extends Hero {
         private final Paint core = strokePaint(Color.parseColor("#FFFFF59D"), 5f);
         private final Paint timer = strokePaint(Color.parseColor("#FFFFEB3B"), 8f);
         private final RectF oval = new RectF();
+        private final float[][] pts = new float[16][4];   // {x, y, รัศมี, มุม} ของศัตรูแต่ละตัวในวงจร
         private List<SeaEnemy> nodes = new ArrayList<>();
         private float fraction = 1f;
         private float pulse = 0f;
@@ -675,24 +679,38 @@ public class Swordfish extends Hero {
 
         @Override
         protected void onDraw(@NonNull Canvas canvas) {
-            List<float[]> pts = new ArrayList<>();
+            // ใช้อาร์เรย์ที่สร้างไว้แล้วซ้ำทุกเฟรม (ไม่ new List/float[]/comparator ใน onDraw)
+            int n = 0;
             float mx = 0f, my = 0f;
-            for (SeaEnemy e : nodes) {
+            for (int eIdx = 0; eIdx < nodes.size() && n < pts.length; eIdx++) {
+                SeaEnemy e = nodes.get(eIdx);
                 if (!e.isAlive || e.containerView == null) continue;
                 View ev = e.containerView;
                 float x = ev.getX() + ev.getWidth() / 2f;
                 float y = ev.getY() + ev.getHeight() / 2f;
-                pts.add(new float[]{x, y, Math.max(40f, Math.max(ev.getWidth(), ev.getHeight()) * 0.6f), 0f});
+                float[] p = pts[n++];
+                p[0] = x;
+                p[1] = y;
+                p[2] = Math.max(40f, Math.max(ev.getWidth(), ev.getHeight()) * 0.6f);
+                p[3] = 0f;
                 mx += x;
                 my += y;
             }
-            if (pts.isEmpty()) return;
-            mx /= pts.size();
-            my /= pts.size();
+            if (n == 0) return;
+            mx /= n;
+            my /= n;
 
-            // เรียงตามมุมรอบจุดกลาง เพื่อต่อสายเป็นวงปิดไม่ไขว้กัน
-            for (float[] p : pts) p[3] = (float) Math.atan2(p[1] - my, p[0] - mx);
-            Collections.sort(pts, (a, b) -> Float.compare(a[3], b[3]));
+            // เรียงตามมุมรอบจุดกลาง เพื่อต่อสายเป็นวงปิดไม่ไขว้กัน (insertion sort ในอาร์เรย์เดิม)
+            for (int i = 0; i < n; i++) pts[i][3] = (float) Math.atan2(pts[i][1] - my, pts[i][0] - mx);
+            for (int i = 1; i < n; i++) {
+                float[] key = pts[i];
+                int j = i - 1;
+                while (j >= 0 && pts[j][3] > key[3]) {
+                    pts[j + 1] = pts[j];
+                    j--;
+                }
+                pts[j + 1] = key;
+            }
 
             // ช่วงท้าย (เหลือน้อยกว่า 25%) สายกะพริบเตือนว่าใกล้หมดเวลา
             boolean blink = fraction < 0.25f && ((int) (System.nanoTime() / 120_000_000L) % 2 == 0);
@@ -702,17 +720,17 @@ public class Swordfish extends Hero {
             glow.setStrokeWidth(18f + 14f * pulse);
             core.setStrokeWidth(5f + 4f * pulse);
 
-            int n = pts.size();
             if (n >= 2) {
                 int segments = n == 2 ? 1 : n;
                 for (int i = 0; i < segments; i++) {
-                    float[] a = pts.get(i);
-                    float[] b = pts.get((i + 1) % n);
+                    float[] a = pts[i];
+                    float[] b = pts[(i + 1) % n];
                     drawJagged(canvas, glow, core, a[0], a[1], b[0], b[1], 16f);
                 }
             }
 
-            for (float[] p : pts) {
+            for (int i = 0; i < n; i++) {
+                float[] p = pts[i];
                 oval.set(p[0] - p[2], p[1] - p[2], p[0] + p[2], p[1] + p[2]);
                 timer.setAlpha(alpha);
                 canvas.drawArc(oval, -90f, 360f * fraction, false, timer);
@@ -756,8 +774,16 @@ public class Swordfish extends Hero {
     private static class StreakView extends View {
         private final Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint core = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private static final int GLOW_FROM = 0x00FFEB3B, GLOW_TO = 0x66FFEB3B;
+        private static final int CORE_FROM = 0x00FFFFFF, CORE_TO = 0xF0FFFFFF;
+
         private final float x0, y0;
         private float x1, y1;
+        private final LinearGradient glowShader =
+                new LinearGradient(0f, 0f, 1f, 0f, GLOW_FROM, GLOW_TO, Shader.TileMode.CLAMP);
+        private final LinearGradient coreShader =
+                new LinearGradient(0f, 0f, 1f, 0f, CORE_FROM, CORE_TO, Shader.TileMode.CLAMP);
+        private final Matrix gradientMatrix = new Matrix();
 
         StreakView(Context context, float x0, float y0) {
             super(context);
@@ -765,12 +791,14 @@ public class Swordfish extends Hero {
             this.y0 = y0;
             this.x1 = x0;
             this.y1 = y0;
-            for (Paint p : new Paint[]{glow, core}) {
-                p.setStyle(Paint.Style.STROKE);
-                p.setStrokeCap(Paint.Cap.ROUND);
-            }
+            glow.setStyle(Paint.Style.STROKE);
+            glow.setStrokeCap(Paint.Cap.ROUND);
+            core.setStyle(Paint.Style.STROKE);
+            core.setStrokeCap(Paint.Cap.ROUND);
             glow.setStrokeWidth(44f);
             core.setStrokeWidth(14f);
+            glow.setShader(glowShader);
+            core.setShader(coreShader);
         }
 
         void setHead(float x, float y) {
@@ -781,11 +809,15 @@ public class Swordfish extends Hero {
 
         @Override
         protected void onDraw(@NonNull Canvas canvas) {
-            if (Math.hypot(x1 - x0, y1 - y0) < 2f) return;
-            glow.setShader(new LinearGradient(x0, y0, x1, y1,
-                    Color.parseColor("#00FFEB3B"), Color.parseColor("#66FFEB3B"), Shader.TileMode.CLAMP));
-            core.setShader(new LinearGradient(x0, y0, x1, y1,
-                    Color.parseColor("#00FFFFFF"), Color.parseColor("#F0FFFFFF"), Shader.TileMode.CLAMP));
+            float dx = x1 - x0, dy = y1 - y0;
+            float len = (float) Math.hypot(dx, dy);
+            if (len < 2f) return;
+            // ไล่สีหน่วยยาว 1 แล้วย้ายด้วย matrix ให้พาดตามเส้น (ไม่สร้าง LinearGradient ใหม่ทุกเฟรม)
+            gradientMatrix.setScale(len, 1f);
+            gradientMatrix.postRotate((float) Math.toDegrees(Math.atan2(dy, dx)));
+            gradientMatrix.postTranslate(x0, y0);
+            glowShader.setLocalMatrix(gradientMatrix);
+            coreShader.setLocalMatrix(gradientMatrix);
             canvas.drawLine(x0, y0, x1, y1, glow);
             canvas.drawLine(x0, y0, x1, y1, core);
         }

@@ -209,325 +209,508 @@
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- ============================================== -->
-    <!-- หน้าจอที่ 3: เลือกตัวละคร -->
+    <!-- หน้าจอที่ 3: เลือกตัวละคร (ออกแบบสำหรับจอแนวนอนราว 800 x 360 dp) -->
+    <!-- หัวเรื่อง 44dp -> แถวเนื้อหา: [รายชื่อฮีโร่ 196dp | แผงรายละเอียด] ห่างกัน 10dp -->
+    <!-- padding ซ้ายขวาขั้นต่ำ 24dp และบวก display cutout ในโค้ด MainActivity -->
     <!-- ============================================== -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutHeroSelect"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#040D14"
+        android:paddingHorizontal="24dp"
         android:visibility="gone">
 
         <!-- 🔙 ปุ่มย้อนกลับ -->
         <ImageButton
             android:id="@+id/btnBack"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_margin="16dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:src="@android:drawable/ic_menu_revert"
             android:backgroundTint="#80000000"
             app:tint="#FFFFFF"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent" />
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
         <TextView
             android:id="@+id/txtSelectHero"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_height="44dp"
+            android:gravity="center"
             android:text="@string/title_select_hero"
             android:textColor="#F39C12"
-            android:textSize="26sp"
+            android:textSize="22sp"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <!-- รายการการ์ดฮีโร่แบบเลื่อนแนวนอน -->
-        <HorizontalScrollView
-            android:id="@+id/scrollHeroSelect"
+        <!-- แถวเนื้อหา: เติมความสูงที่เหลือทั้งหมด -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_marginTop="12dp"
-            android:layout_marginBottom="12dp"
-            android:clipToPadding="false"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:scrollbars="none"
-            app:layout_constraintBottom_toTopOf="@+id/layoutHeroDetail"
+            android:layout_marginBottom="8dp"
+            android:orientation="horizontal"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/txtSelectHero">
 
+            <!-- คอลัมน์ซ้าย: รายชื่อฮีโร่ 5 ใบเรียงลงมา ไม่เลื่อน แบ่งความสูงเท่ากัน -->
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:id="@+id/scrollHeroSelect"
+                android:layout_width="196dp"
                 android:layout_height="match_parent"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:orientation="vertical">
 
                 <!-- ⚔️ ตัวที่ 1: Swordfish -->
                 <LinearLayout
                     android:id="@+id/cardHero1"
-                    android:layout_width="160dp"
-                    android:layout_height="match_parent"
-                    android:layout_margin="8dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
                     android:background="#1A252C"
                     android:clickable="true"
                     android:focusable="true"
-                    android:gravity="center_horizontal"
-                    android:orientation="vertical"
-                    android:padding="12dp">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="8dp">
                     <ImageView
-                        android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        android:layout_weight="1"
-                        android:adjustViewBounds="true"
+                        android:layout_width="60dp"
+                        android:layout_height="34dp"
                         android:scaleType="fitCenter"
                         android:src="@drawable/hero_1" />
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="@string/hero_1_name"
-                        android:textColor="#FFFFFF"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/hero_1_type"
-                        android:textColor="#2980B9"
-                        android:textSize="12sp" />
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="@string/hero_1_name"
+                            android:textColor="#FFFFFF"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="@string/hero_1_type"
+                            android:textColor="#2980B9"
+                            android:textSize="11sp" />
+                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- 🛡️ ตัวที่ 2: Pufferfish -->
                 <LinearLayout
                     android:id="@+id/cardHero2"
-                    android:layout_width="160dp"
-                    android:layout_height="match_parent"
-                    android:layout_margin="8dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_marginTop="6dp"
+                    android:layout_weight="1"
                     android:background="#1A252C"
                     android:clickable="true"
                     android:focusable="true"
-                    android:gravity="center_horizontal"
-                    android:orientation="vertical"
-                    android:padding="12dp">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="8dp">
                     <ImageView
-                        android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        android:layout_weight="1"
-                        android:adjustViewBounds="true"
+                        android:layout_width="60dp"
+                        android:layout_height="34dp"
                         android:scaleType="fitCenter"
                         android:src="@drawable/hero_2" />
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="@string/hero_2_name"
-                        android:textColor="#FFFFFF"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/hero_2_type"
-                        android:textColor="#D35400"
-                        android:textSize="12sp" />
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="@string/hero_2_name"
+                            android:textColor="#FFFFFF"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="@string/hero_2_type"
+                            android:textColor="#D35400"
+                            android:textSize="11sp" />
+                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- 🔮 ตัวที่ 3: Shark -->
                 <LinearLayout
                     android:id="@+id/cardHero3"
-                    android:layout_width="160dp"
-                    android:layout_height="match_parent"
-                    android:layout_margin="8dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_marginTop="6dp"
+                    android:layout_weight="1"
                     android:background="#1A252C"
                     android:clickable="true"
                     android:focusable="true"
-                    android:gravity="center_horizontal"
-                    android:orientation="vertical"
-                    android:padding="12dp">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="8dp">
                     <ImageView
-                        android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        android:layout_weight="1"
-                        android:adjustViewBounds="true"
+                        android:layout_width="60dp"
+                        android:layout_height="34dp"
                         android:scaleType="fitCenter"
                         android:src="@drawable/hero_3" />
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="@string/hero_3_name"
-                        android:textColor="#FFFFFF"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/hero_3_type"
-                        android:textColor="#8E44AD"
-                        android:textSize="12sp" />
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="@string/hero_3_name"
+                            android:textColor="#FFFFFF"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="@string/hero_3_type"
+                            android:textColor="#8E44AD"
+                            android:textSize="11sp" />
+                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- 🐙 ตัวที่ 4: Octopus -->
                 <LinearLayout
                     android:id="@+id/cardHero4"
-                    android:layout_width="160dp"
-                    android:layout_height="match_parent"
-                    android:layout_margin="8dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_marginTop="6dp"
+                    android:layout_weight="1"
                     android:background="#1A252C"
                     android:clickable="true"
                     android:focusable="true"
-                    android:gravity="center_horizontal"
-                    android:orientation="vertical"
-                    android:padding="12dp">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="8dp">
                     <ImageView
-                        android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        android:layout_weight="1"
-                        android:adjustViewBounds="true"
+                        android:layout_width="60dp"
+                        android:layout_height="34dp"
                         android:scaleType="fitCenter"
                         android:src="@drawable/hero_4" />
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="@string/hero_4_name"
-                        android:textColor="#FFFFFF"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/hero_4_type"
-                        android:textColor="#C0392B"
-                        android:textSize="12sp" />
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="@string/hero_4_name"
+                            android:textColor="#FFFFFF"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="@string/hero_4_type"
+                            android:textColor="#C0392B"
+                            android:textSize="11sp" />
+                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- ⚡ ตัวที่ 5: Electric Eel -->
                 <LinearLayout
                     android:id="@+id/cardHero5"
-                    android:layout_width="160dp"
-                    android:layout_height="match_parent"
-                    android:layout_margin="8dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_marginTop="6dp"
+                    android:layout_weight="1"
                     android:background="#1A252C"
                     android:clickable="true"
                     android:focusable="true"
-                    android:gravity="center_horizontal"
-                    android:orientation="vertical"
-                    android:padding="12dp">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="8dp">
                     <ImageView
-                        android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        android:layout_weight="1"
-                        android:adjustViewBounds="true"
+                        android:layout_width="60dp"
+                        android:layout_height="34dp"
                         android:scaleType="fitCenter"
                         android:src="@drawable/hero_5" />
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="@string/hero_5_name"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="@string/hero_5_name"
+                            android:textColor="#FFFFFF"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="@string/hero_5_type"
+                            android:textColor="#27AE60"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- คอลัมน์ขวา: แผงรายละเอียดฮีโร่ที่เลือก (ห่างจากรายชื่อ 10dp) -->
+            <LinearLayout
+                android:id="@+id/layoutHeroDetail"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:background="#1A252C"
+                android:orientation="vertical"
+                android:padding="10dp">
+
+                <!-- แถวบน: รูป | ชื่อ-วิชา-คำอธิบาย | ปุ่ม FIGHT -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:id="@+id/imgSelectedHero"
+                        android:layout_width="100dp"
+                        android:layout_height="58dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/hero_1" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginHorizontal="10dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/txtSelectedName"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="กรุณาเลือกตัวละคร"
+                            android:textColor="#00ADB5"
+                            android:textSize="20sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txtSelectedSubject"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="วิชา: -"
+                            android:textColor="#F39C12"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txtSelectedDesc"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text="แตะเลือกการ์ดฮีโร่ด้านบนเพื่อดูรายละเอียดสกิล"
+                            android:textColor="#BDC3C7"
+                            android:textSize="11.5sp" />
+                    </LinearLayout>
+
+                    <!-- ปุ่ม FIGHT! ท้ายแถวบน -->
+                    <Button
+                        android:id="@+id/btnFight"
+                        android:layout_width="120dp"
+                        android:layout_height="52dp"
+                        android:backgroundTint="#C0392B"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:text="@string/btn_fight_text"
                         android:textColor="#FFFFFF"
-                        android:textSize="16sp"
+                        android:textSize="18sp"
                         android:textStyle="bold" />
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/hero_5_type"
-                        android:textColor="#27AE60"
-                        android:textSize="12sp" />
                 </LinearLayout>
 
+                <!-- เส้นคั่น 1dp -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginVertical="8dp"
+                    android:background="#33FFFFFF" />
+
+                <!-- ส่วนสกิล: กินความสูงที่เหลือทั้งหมดของแผง
+                     fillViewport ทำให้ 3 บล็อกกระจายเท่าๆ กันเมื่อเนื้อหาไม่เต็ม และเลื่อนได้เมื่อเนื้อหายาวเกิน -->
+                <ScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:fillViewport="true">
+
+                    <LinearLayout
+                        android:id="@+id/txtSelectedSkills"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <!-- Skill 1 -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center_vertical"
+                            android:orientation="vertical"
+                            android:paddingVertical="4dp">
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:background="@drawable/bg_skill_chip"
+                                    android:paddingHorizontal="8dp"
+                                    android:paddingVertical="3dp"
+                                    android:text="Skill 1"
+                                    android:textColor="#00ADB5"
+                                    android:textSize="12sp"
+                                    android:textStyle="bold" />
+                                <TextView
+                                    android:id="@+id/txtSkill1Name"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="8dp"
+                                    android:layout_weight="1"
+                                    android:fontFamily="sans-serif-medium"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="15sp" />
+                            </LinearLayout>
+                            <TextView
+                                android:id="@+id/txtSkill1Desc"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:lineSpacingMultiplier="1.4"
+                                android:textColor="#ECF0F1"
+                                android:textSize="14sp" />
+                        </LinearLayout>
+
+                        <!-- Skill 2 -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center_vertical"
+                            android:orientation="vertical"
+                            android:paddingVertical="4dp">
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:background="@drawable/bg_skill_chip"
+                                    android:paddingHorizontal="8dp"
+                                    android:paddingVertical="3dp"
+                                    android:text="Skill 2"
+                                    android:textColor="#00ADB5"
+                                    android:textSize="12sp"
+                                    android:textStyle="bold" />
+                                <TextView
+                                    android:id="@+id/txtSkill2Name"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="8dp"
+                                    android:layout_weight="1"
+                                    android:fontFamily="sans-serif-medium"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="15sp" />
+                            </LinearLayout>
+                            <TextView
+                                android:id="@+id/txtSkill2Desc"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:lineSpacingMultiplier="1.4"
+                                android:textColor="#ECF0F1"
+                                android:textSize="14sp" />
+                        </LinearLayout>
+
+                        <!-- Ultimate Skill -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center_vertical"
+                            android:orientation="vertical"
+                            android:paddingVertical="4dp">
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:background="@drawable/bg_skill_chip"
+                                    android:paddingHorizontal="8dp"
+                                    android:paddingVertical="3dp"
+                                    android:text="Ultimate Skill"
+                                    android:textColor="#F5B041"
+                                    android:textSize="12sp"
+                                    android:textStyle="bold" />
+                                <TextView
+                                    android:id="@+id/txtUltName"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="8dp"
+                                    android:layout_weight="1"
+                                    android:fontFamily="sans-serif-medium"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="15sp" />
+                            </LinearLayout>
+                            <TextView
+                                android:id="@+id/txtUltDesc"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:lineSpacingMultiplier="1.4"
+                                android:textColor="#ECF0F1"
+                                android:textSize="14sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </ScrollView>
             </LinearLayout>
-        </HorizontalScrollView>
-
-        <!-- 🌟 ส่วนแสดงรายละเอียดฮีโร่ที่ถูกเลือก -->
-        <LinearLayout
-            android:id="@+id/layoutHeroDetail"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="20dp"
-            android:layout_marginBottom="16dp"
-            android:background="#1A252C"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:padding="12dp"
-            app:layout_constraintBottom_toTopOf="@+id/btnFight"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/scrollHeroSelect">
-
-            <!-- รูปภาพตัวละครขนาดใหญ่ -->
-            <ImageView
-                android:id="@+id/imgSelectedHero"
-                android:layout_width="140dp"
-                android:layout_height="80dp"
-                android:scaleType="fitCenter"
-                android:src="@drawable/hero_1" />
-
-            <!-- ข้อมูลชื่อ วิชา และคำอธิบาย -->
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/txtSelectedName"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="กรุณาเลือกตัวละคร"
-                    android:textColor="#00ADB5"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/txtSelectedSubject"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="วิชา: -"
-                    android:textColor="#F39C12"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/txtSelectedDesc"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="แตะเลือกการ์ดฮีโร่ด้านบนเพื่อดูรายละเอียดสกิล"
-                    android:textColor="#BDC3C7"
-                    android:textSize="12sp" />
-            </LinearLayout>
-
-            <!-- คำอธิบายสกิล 1 / สกิล 2 / Ultimate ของฮีโร่ที่เลือก -->
-            <TextView
-                android:id="@+id/txtSelectedSkills"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
-                android:layout_weight="1.4"
-                android:lineSpacingExtra="2dp"
-                android:textColor="#ECF0F1"
-                android:textSize="11sp" />
         </LinearLayout>
-
-        <!-- ปุ่ม FIGHT! -->
-        <Button
-            android:id="@+id/btnFight"
-            android:layout_width="220dp"
-            android:layout_height="60dp"
-            android:layout_marginBottom="20dp"
-            android:backgroundTint="#C0392B"
-            android:text="@string/btn_fight_text"
-            android:textColor="#FFFFFF"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </FrameLayout>

@@ -27,7 +27,8 @@ public class MainActivity extends BaseActivity {
     private ImageView imgSelectedHero;
     private TextView txtSelectedName;
     private TextView txtSelectedSubject;
-    private TextView txtSelectedSkills;
+    // ชื่อ/คำอธิบายสกิลของฮีโร่ที่เลือก (แยกเป็น view ต่อสกิล)
+    private TextView txtSkill1Name, txtSkill1Desc, txtSkill2Name, txtSkill2Desc, txtUltName, txtUltDesc;
 
     // วิดีโอพื้นหลังและหน้าจอ เก็บเป็นฟิลด์ เพื่อกู้วิดีโอกลับมาตอนกลับจากหน้าอื่น (เช่น ตั้งค่า)
     private VideoView videoBackground;
@@ -80,6 +81,16 @@ public class MainActivity extends BaseActivity {
         layoutLevelSelect = findViewById(R.id.layoutLevelSelect);
         View layoutHeroSelect = findViewById(R.id.layoutHeroSelect);
 
+        // กันกล้องหน้า/มุมโค้งบังหน้าเลือกฮีโร่: padding ซ้าย-ขวาอย่างน้อย 24dp และไม่น้อยกว่า cutout ของแต่ละฝั่ง
+        final int minHeroPad = Math.round(24 * getResources().getDisplayMetrics().density);
+        ViewCompat.setOnApplyWindowInsetsListener(layoutHeroSelect, (v, insets) -> {
+            Insets cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout());
+            v.setPadding(Math.max(minHeroPad, cutout.left), v.getPaddingTop(),
+                    Math.max(minHeroPad, cutout.right), v.getPaddingBottom());
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(layoutHeroSelect);
+
         // กดปุ่ม Start Game (จากหน้า 1 ไปหน้า 2)
         Button btnStart = findViewById(R.id.btnStart);
         btnStart.setOnClickListener(v -> {
@@ -122,7 +133,12 @@ public class MainActivity extends BaseActivity {
         imgSelectedHero = findViewById(R.id.imgSelectedHero);
         txtSelectedName = findViewById(R.id.txtSelectedName);
         txtSelectedSubject = findViewById(R.id.txtSelectedSubject);
-        txtSelectedSkills = findViewById(R.id.txtSelectedSkills);
+        txtSkill1Name = findViewById(R.id.txtSkill1Name);
+        txtSkill1Desc = findViewById(R.id.txtSkill1Desc);
+        txtSkill2Name = findViewById(R.id.txtSkill2Name);
+        txtSkill2Desc = findViewById(R.id.txtSkill2Desc);
+        txtUltName = findViewById(R.id.txtUltName);
+        txtUltDesc = findViewById(R.id.txtUltDesc);
         txtSelectedDesc = findViewById(R.id.txtSelectedDesc);
 
         // ตั้งค่าให้เลือกตัวละครแรก (Swordfish) เป็นค่าเริ่มต้น
@@ -276,13 +292,16 @@ public class MainActivity extends BaseActivity {
                 break;
         }
 
-        // 3.1 คำอธิบายสกิล 1 / สกิล 2 / Ultimate ดึงจากคลาสฮีโร่ตัวนั้นโดยตรง จึงตรงกับสกิลจริงเสมอ
-        if (txtSelectedSkills != null) {
+        // 3.1 ชื่อและคำอธิบายสกิล 1 / สกิล 2 / Ultimate ดึงจากคลาสฮีโร่ตัวนั้นโดยตรง จึงตรงกับสกิลจริงเสมอ
+        // (ป้าย Skill 1 / Skill 2 / Ultimate Skill เป็นข้อความตายตัวใน layout)
+        if (txtSkill1Name != null) {
             Hero hero = HeroFactory.createHero(heroIndex);
-            txtSelectedSkills.setText(
-                    "1) " + hero.getSkill1Icon() + " " + hero.getSkill1Name() + ": " + hero.getSkill1Description()
-                    + "\n2) " + hero.getSkill2Icon() + " " + hero.getSkill2Name() + ": " + hero.getSkill2Description()
-                    + "\nULT) " + hero.getUltimateIcon() + " " + hero.getUltimateName() + ": " + hero.getUltimateDescription());
+            txtSkill1Name.setText(hero.getSkill1Name());
+            txtSkill1Desc.setText(hero.getSkill1Description());
+            txtSkill2Name.setText(hero.getSkill2Name());
+            txtSkill2Desc.setText(hero.getSkill2Description());
+            txtUltName.setText(hero.getUltimateName());
+            txtUltDesc.setText(hero.getUltimateDescription());
         }
 
         // 4. ปลดล็อคปุ่ม FIGHT! และคืนความเข้มปุ่มเป็น 100%

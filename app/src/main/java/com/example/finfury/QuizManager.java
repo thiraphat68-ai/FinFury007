@@ -139,12 +139,24 @@ public class QuizManager {
         ViewCompat.requestApplyInsets(layoutContent);
     }
 
+    /** ผู้เรียกใช้บอกว่าตอนนี้เปิดโจทย์ได้ไหม (เช่น ด่านยังไม่จบ) ตรวจทุกครั้งที่เรียก show() */
+    public interface Gate {
+        boolean canShow();
+    }
+
+    private Gate gate;
+
+    public void setGate(Gate gate) {
+        this.gate = gate;
+    }
+
     public boolean isShowing() {
         return overlay.getVisibility() == View.VISIBLE;
     }
 
     public void show() {
         if (bank.isEmpty() || isShowing()) return;
+        if (gate != null && !gate.canShow()) return;   // ด่านจบแล้ว หรือมี overlay อื่นเปิดอยู่: ไม่เปิดโจทย์
 
         listener.onQuizShown();
 
@@ -282,7 +294,11 @@ public class QuizManager {
     }
 
     /** เรียกจาก onDestroy ของ Activity */
-    public void destroy() {
+    /**
+     * ปิดโจทย์ทันทีโดยไม่เรียก onCorrect/onWrong/onTimeout (ใช้ตอนด่านจบขณะโจทย์เปิดหรือกำลังนับ 3-2-1)
+     * ยกเลิกตัวนับเวลา (เสียงติ๊กจึงหยุดด้วย) และงานที่รอเวลาทั้งหมด
+     */
+    public void dismiss() {
         cancelTimer();
         if (pendingClose != null) handler.removeCallbacks(pendingClose);
         pendingClose = null;
@@ -291,6 +307,13 @@ public class QuizManager {
         txtCountdown.animate().cancel();
         txtCountdown.setVisibility(View.GONE);
         overlay.setVisibility(View.GONE);
+        answered = true;   // กดตอบ/หมดเวลาอีกไม่ได้ (resolve() จะไม่ทำอะไร)
+        current = null;
+    }
+
+    /** เรียกจาก onDestroy ของ Activity */
+    public void destroy() {
+        dismiss();
     }
 
     private void cancelTimer() {
@@ -300,10 +323,28 @@ public class QuizManager {
         }
     }
 
+    private int lastShownSecond = -1;
+    private int lastBarProgress = -1;
+    private final StringBuilder timeText = new StringBuilder(8);
+
+    // onTick ถี่ทุก 100 ms แต่ข้อความเวลาเปลี่ยนวินาทีละครั้ง จึงสร้างข้อความใหม่เฉพาะตอนวินาทีเปลี่ยน
     private void updateTime(long millisLeft) {
-        barTime.setProgress((int) (millisLeft * BAR_MAX / QUIZ_TIME_MS));
-        long totalSec = (millisLeft + 999) / 1000;
-        txtTime.setText(String.format(Locale.US, "%02d:%02d", totalSec / 60, totalSec % 60));
+        int progress = (int) (millisLeft * BAR_MAX / QUIZ_TIME_MS);
+        if (progress != lastBarProgress) {
+            lastBarProgress = progress;
+            barTime.setProgress(progress);
+        }
+        int totalSec = (int) ((millisLeft + 999) / 1000);
+        if (totalSec != lastShownSecond) {
+            lastShownSecond = totalSec;
+            timeText.setLength(0);
+            int min = totalSec / 60, sec = totalSec % 60;
+            if (min < 10) timeText.append('0');
+            timeText.append(min).append(':');
+            if (sec < 10) timeText.append('0');
+            timeText.append(sec);
+            txtTime.setText(timeText);
+        }
     }
 
     private static void tint(Button b, int color) {

@@ -48,11 +48,11 @@ public class Pufferfish extends Hero {
 
     @Override public String getSkill1Name() { return "Inflate"; }
     @Override public String getSkill1Icon() { return "🐡"; }
-    @Override public String getSkill1Description() { return "พองตัว 2.2 เท่า นาน 1 วินาที ศัตรูที่ชนโดน 2 ดาเมจ"; }
+    @Override public String getSkill1Description() { return "พองตัว นาน 1 วินาที ศัตรูที่ชนโดน 2 ดาเมจ"; }
 
     @Override public String getSkill2Name() { return "Venom Spray"; }
     @Override public String getSkill2Icon() { return "☠️"; }
-    @Override public String getSkill2Description() { return "พ่นพิษสีม่วงเป็นกรวยจากปาก ระยะ 600 px ดาเมจ 2"; }
+    @Override public String getSkill2Description() { return "พ่นพิษสีม่วงเป็นกรวยจากปาก ดาเมจ 2"; }
 
     @Override public String getUltimateName() { return "Toxic Gulp"; }
     @Override public String getUltimateIcon() { return "🌀"; }
@@ -93,6 +93,7 @@ public class Pufferfish extends Hero {
         aimLoop.setDuration(AIM_MAX_MS);
         aimLoop.setInterpolator(new LinearInterpolator());
         final boolean[] fired = {false};
+        final List<SeaEnemy> rangeBuf = new ArrayList<>();
 
         aimLoop.addUpdateListener(animation -> {
             if (!ctx.isGameRunning()) {
@@ -101,7 +102,7 @@ public class Pufferfish extends Hero {
             }
             float cx = player.getX() + player.getWidth() / 2f;
             float cy = player.getY() + player.getHeight() / 2f;
-            List<SeaEnemy> inRange = findInRange(ctx, cx, cy);
+            List<SeaEnemy> inRange = findInRange(ctx, cx, cy, rangeBuf);
 
             long elapsed = (long) (animation.getAnimatedFraction() * AIM_MAX_MS);
             aim.update(cx, cy, inRange, Math.min(1f, elapsed / (float) AIM_MIN_MS));
@@ -110,7 +111,7 @@ public class Pufferfish extends Hero {
                 fired[0] = true;
                 animation.cancel();
                 area.removeView(aim);
-                suckIn(ctx, player, inRange);
+                suckIn(ctx, player, new ArrayList<>(inRange));   // สำเนา: rangeBuf ถูกใช้ซ้ำทุกเฟรม
             }
         });
         aimLoop.addListener(new AnimatorListenerAdapter() {
@@ -126,9 +127,10 @@ public class Pufferfish extends Hero {
     }
 
     /** ศัตรูที่ยังมีชีวิตทุกตัวที่อยู่ในวงระยะ */
-    private static List<SeaEnemy> findInRange(BattleContext ctx, float cx, float cy) {
-        List<SeaEnemy> result = new ArrayList<>();
-        for (SeaEnemy e : ctx.getEnemies()) {
+    private static List<SeaEnemy> findInRange(BattleContext ctx, float cx, float cy, List<SeaEnemy> result) {
+        result.clear();   // ลิสต์เดิมใช้ซ้ำทุกเฟรม
+        for (int eIdx = 0; eIdx < ctx.getEnemies().size(); eIdx++) {
+            SeaEnemy e = ctx.getEnemies().get(eIdx);
             if (!e.isAlive || e.isSwallowed() || e.containerView == null) continue;
             float ex = e.containerView.getX() + e.containerView.getWidth() / 2f;
             float ey = e.containerView.getY() + e.containerView.getHeight() / 2f;
@@ -230,10 +232,12 @@ public class Pufferfish extends Hero {
         private final float range;
         private float cx, cy, charge, phase;
         private List<SeaEnemy> targets = new ArrayList<>();
+        private final DashPathEffect[] dashes = new DashPathEffect[58];   // 36 + 22 = 1 รอบของลายเส้นประ สร้างครั้งเดียว
 
         AimView(Context context, float range) {
             super(context);
             this.range = range;
+            for (int i = 0; i < dashes.length; i++) dashes[i] = new DashPathEffect(new float[]{36f, 22f}, i);
             fill.setStyle(Paint.Style.FILL);
             fill.setColor(Color.parseColor("#229C27B0"));
             ring.setStyle(Paint.Style.STROKE);
@@ -259,7 +263,7 @@ public class Pufferfish extends Hero {
             canvas.drawCircle(cx, cy, range, fill);
 
             // เส้นประวงหมุนช้าๆ ให้รู้ว่าเป็นวงเล็ง
-            ring.setPathEffect(new DashPathEffect(new float[]{36f, 22f}, phase));
+            ring.setPathEffect(dashes[(int) phase % dashes.length]);
             canvas.drawCircle(cx, cy, range, ring);
 
             // วงใน ค่อยๆ ขยายเต็มวงตามเวลาที่ชาร์จ

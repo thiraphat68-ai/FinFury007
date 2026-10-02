@@ -9,7 +9,6 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.LinearInterpolator;
@@ -19,7 +18,6 @@ import androidx.annotation.NonNull;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Shark (วิชาแคลคูลัส):
@@ -64,7 +62,7 @@ public class Shark extends Hero {
 
     @Override public String getSkill1Name() { return "Derivative Bite"; }
     @Override public String getSkill1Icon() { return "🦈"; }
-    @Override public String getSkill1Description() { return "พุ่งกัด 350 px ดาเมจ 2-4 ตามความเร็วที่ว่ายอยู่ตอนกด ยิ่งเร็วยิ่งแรง"; }
+    @Override public String getSkill1Description() { return "พุ่งกัด ดาเมจ 2-4 ตามความเร็วที่ว่ายอยู่ตอนกด ยิ่งเร็วยิ่งแรง"; }
 
     @Override public String getSkill2Name() { return "Accumulating Wave"; }
     @Override public String getSkill2Icon() { return "🌊"; }
@@ -109,6 +107,7 @@ public class Shark extends Hero {
         // สีเงาตามแรงกัด: ฟ้า (ช้า) -> แดง (เร็ว) ให้ผู้เล่นเห็นว่ากดตอนเร็วพอหรือยัง
         final int ghostColor = blend(Color.parseColor("#4400E5FF"), Color.parseColor("#88FF1744"), speedRatio);
 
+        final long[] lastGhost = {0};   // เสกเงาไม่ถี่กว่า 40 ms
         ValueAnimator bite = ValueAnimator.ofFloat(0f, 1f);
         bite.setDuration(BITE_DURATION_MS);
         bite.setInterpolator(new DecelerateInterpolator());
@@ -118,10 +117,13 @@ public class Shark extends Hero {
             player.setTranslationX(startTx + (finalEndTx - startTx) * p);
             player.setTranslationY(startTy + (finalEndTy - startTy) * p);
 
-            spawnGhost(gameArea, player.getX(), player.getY(),
-                    player.getWidth(), player.getHeight(), ghostColor);
+            if (GhostPool.due(lastGhost)) {
+                GhostPool.ghosts(gameArea).ghost(player.getX(), player.getY(),
+                        player.getWidth(), player.getHeight(), ghostColor);
+            }
 
-            for (SeaEnemy enemy : ctx.getEnemies()) {
+            for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+                SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
                 if (enemy.isAlive && enemy.containerView != null
                         && !hitEnemies.contains(enemy)
                         && overlaps(player, enemy.containerView)) {
@@ -189,7 +191,8 @@ public class Shark extends Hero {
             wave.setY(cy - WAVE_SPAN / 2f);
             wave.setAlpha(1f - 0.5f * f);
 
-            for (SeaEnemy enemy : ctx.getEnemies()) {
+            for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+                SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
                 if (!enemy.isAlive || enemy.containerView == null || hitEnemies.contains(enemy)) continue;
                 View ev = enemy.containerView;
                 float ex = ev.getX() + ev.getWidth() / 2f;
@@ -300,19 +303,6 @@ public class Shark extends Hero {
                 (int) (Color.blue(c0) + (Color.blue(c1) - Color.blue(c0)) * t));
     }
 
-    private static void spawnGhost(FrameLayout area, float x, float y, int w, int h, int color) {
-        View ghost = new View(area.getContext());
-        GradientDrawable bg = new GradientDrawable();
-        bg.setShape(GradientDrawable.OVAL);
-        bg.setColor(color);
-        ghost.setBackground(bg);
-        ghost.setLayoutParams(new FrameLayout.LayoutParams(w, h));
-        ghost.setX(x);
-        ghost.setY(y);
-        area.addView(ghost);
-        ghost.animate().alpha(0f).scaleX(0.3f).scaleY(0.3f).setDuration(250)
-                .withEndAction(() -> area.removeView(ghost)).start();
-    }
 
     private static boolean overlaps(View v1, View v2) {
         float x1 = v1.getX(), y1 = v1.getY();
@@ -362,6 +352,9 @@ public class Shark extends Hero {
         private float fraction = 1f;
         private long remainingMs = FRENZY_MS;
         private int stack = 0;
+        private final StringBuilder label = new StringBuilder(48);
+        private int lastTenths = -1;
+        private int lastStack = -1;
 
         FrenzyView(Context context) {
             super(context);
@@ -372,10 +365,8 @@ public class Shark extends Hero {
             text.setTextAlign(Paint.Align.CENTER);
             text.setTextSize(46f);
             text.setTypeface(Typeface.DEFAULT_BOLD);
-            text.setShadowLayer(8f, 0f, 0f, Color.BLACK);
             barBack.setColor(Color.parseColor("#55000000"));
             barFill.setColor(Color.parseColor("#FFFF1744"));
-            setLayerType(LAYER_TYPE_SOFTWARE, null);   // ให้ shadow ของข้อความทำงาน
         }
 
         void update(float fraction, long remainingMs) {
@@ -399,8 +390,20 @@ public class Shark extends Hero {
             rect.set(0, 0, w, h);
             canvas.drawRect(rect, border);
 
-            canvas.drawText(String.format(Locale.US, "🩸 BLOOD FRENZY  +%d  (%.1fs)",
-                    stack, remainingMs / 1000f), w / 2f, 70f, text);
+            // ข้อความสร้างใหม่เฉพาะตอนค่าเปลี่ยน (เศษวินาทีหรือสแตก) ไม่ format ทุกเฟรม
+            int tenths = (int) (remainingMs / 100);
+            if (tenths != lastTenths || stack != lastStack) {
+                lastTenths = tenths;
+                lastStack = stack;
+                label.setLength(0);
+                label.append("🩸 BLOOD FRENZY  +").append(stack).append("  (")
+                        .append(tenths / 10).append('.').append(tenths % 10).append("s)");
+            }
+            // เงาข้อความ: วาดสีดำเยื้อง 2 px ก่อน แล้วค่อยวาดตัวหนังสือสีขาวทับ (แทน shadow layer ที่ต้องใช้ software layer)
+            text.setColor(Color.BLACK);
+            canvas.drawText(label, 0, label.length(), w / 2f + 2f, 72f, text);
+            text.setColor(Color.WHITE);
+            canvas.drawText(label, 0, label.length(), w / 2f, 70f, text);
 
             float barW = w * 0.4f;
             rect.set(w / 2f - barW / 2f, 90f, w / 2f + barW / 2f, 106f);

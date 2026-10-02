@@ -32,20 +32,9 @@ public final class SkillEffects {
 
     private static final int PROJECTILE_SIZE = 80;
 
-    // ภาพเงาจางๆ ทิ้งไว้ด้านหลังตัวที่พุ่ง/กระสุน เพื่อให้เห็นเส้นทางชัด
-    private static void spawnGhost(FrameLayout area, float x, float y, int w, int h, int color) {
-        View ghost = new View(area.getContext());
-        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-        bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-        bg.setColor(color);
-        ghost.setBackground(bg);
-        ghost.setLayoutParams(new FrameLayout.LayoutParams(w, h));
-        ghost.setX(x);
-        ghost.setY(y);
-        area.addView(ghost);
-        ghost.animate().alpha(0f).scaleX(0.3f).scaleY(0.3f).setDuration(250)
-                .withEndAction(() -> area.removeView(ghost)).start();
-    }
+    // สีเงาตามเส้นทาง (ภาพเงาจางๆ มาจาก GhostPool ที่ใช้ซ้ำ ไม่สร้าง View ใหม่ทุกเฟรม)
+    private static final int GHOST_DASH = 0x3300E5FF;
+    private static final int GHOST_PROJECTILE = 0x44FFEB3B;
 
     // ---------------------------------------------------------
     // พุ่งไปตามทิศของจอยสติ๊ก ชนศัตรูตัวไหนก็ทำดาเมจ (ตัวละ 1 ครั้ง)
@@ -79,6 +68,8 @@ public final class SkillEffects {
         dashAnimator.setInterpolator(new DecelerateInterpolator());
 
         final List<SeaEnemy> hitEnemies = new ArrayList<>();
+        final GhostPool ghostPool = GhostPool.ghosts(gameArea);
+        final long[] lastGhost = {0};
 
         dashAnimator.addUpdateListener(animation -> {
             float progress = (float) animation.getAnimatedValue();
@@ -86,10 +77,14 @@ public final class SkillEffects {
             player.setTranslationX(startTx + (finalEndTx - startTx) * progress);
             player.setTranslationY(startTy + (finalEndTy - startTy) * progress);
 
-            spawnGhost(gameArea, player.getX(), player.getY(),
-                    player.getWidth(), player.getHeight(), Color.parseColor("#3300E5FF"));
+            // เสกเงาไม่ถี่กว่า 40 ms
+            if (GhostPool.due(lastGhost)) {
+                ghostPool.ghost(player.getX(), player.getY(),
+                        player.getWidth(), player.getHeight(), GHOST_DASH);
+            }
 
-            for (SeaEnemy enemy : ctx.getEnemies()) {
+            for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+                SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
                 if (enemy.isAlive && enemy.containerView != null
                         && !hitEnemies.contains(enemy)
                         && isColliding(player, enemy.containerView)) {
@@ -136,7 +131,8 @@ public final class SkillEffects {
             float halfW = player.getWidth() * s / 2f;
             float halfH = player.getHeight() * s / 2f;
 
-            for (SeaEnemy enemy : ctx.getEnemies()) {
+            for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+                SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
                 if (enemy.isAlive && enemy.containerView != null
                         && !hitEnemies.contains(enemy)) {
                     View ev = enemy.containerView;
@@ -187,6 +183,7 @@ public final class SkillEffects {
         final int[] colors = {0xAA9C27B0, 0xAA7B1FA2, 0xAAAB47BC, 0xAA6A1B9A};
         final java.util.Random rnd = new java.util.Random();
         final List<SeaEnemy> hitEnemies = new ArrayList<>();
+        final GhostPool puffPool = GhostPool.puffs(gameArea);
 
         ValueAnimator spray = ValueAnimator.ofFloat(0f, 1f);
         spray.setDuration(durationMs);
@@ -198,32 +195,16 @@ public final class SkillEffects {
                 float dist = range * (0.5f + rnd.nextFloat() * 0.5f);
                 int size = 30 + rnd.nextInt(40);
 
-                View puff = new View(gameArea.getContext());
-                android.graphics.drawable.GradientDrawable bg =
-                        new android.graphics.drawable.GradientDrawable();
-                bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-                bg.setColor(colors[rnd.nextInt(colors.length)]);
-                puff.setBackground(bg);
-                puff.setLayoutParams(new FrameLayout.LayoutParams(size, size));
-                puff.setX(originX - size / 2f);
-                puff.setY(originY - size / 2f);
-                puff.setScaleX(0.4f);
-                puff.setScaleY(0.4f);
-                gameArea.addView(puff);
-
-                puff.animate()
-                        .translationXBy((float) Math.cos(a) * dist)
-                        .translationYBy((float) Math.sin(a) * dist)
-                        .scaleX(2f).scaleY(2f).alpha(0f)
-                        .setDuration(450 + rnd.nextInt(200))
-                        .setInterpolator(new DecelerateInterpolator())
-                        .withEndAction(() -> gameArea.removeView(puff))
-                        .start();
+                // ละอองมาจากกองที่ใช้ซ้ำ: เริ่มที่ 0.4 เท่า ขยายเป็น 2 เท่า ลอยออกไปแล้วจาง (เหมือนเดิม)
+                puffPool.spawn(originX, originY, size, size, colors[rnd.nextInt(colors.length)],
+                        0.4f, 2f, (float) Math.cos(a) * dist, (float) Math.sin(a) * dist,
+                        450 + rnd.nextInt(200));
             }
 
             // ลำพิษยาวขึ้นตามเวลา เช็กศัตรูในกรวยเท่าความยาวปัจจุบัน
             float reach = range * Math.min(1f, animation.getAnimatedFraction() * 2.5f);
-            for (SeaEnemy enemy : ctx.getEnemies()) {
+            for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+                SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
                 if (!enemy.isAlive || enemy.containerView == null || hitEnemies.contains(enemy)) {
                     continue;
                 }
@@ -280,6 +261,8 @@ public final class SkillEffects {
         animator.setInterpolator(new LinearInterpolator());
 
         final boolean[] hasHit = {false};
+        final GhostPool ghostPool = GhostPool.ghosts(gameArea);
+        final long[] lastGhost = {0};
 
         animator.addUpdateListener(animation -> {
             if (hasHit[0]) return;
@@ -288,12 +271,14 @@ public final class SkillEffects {
             projectile.setX(startX + (targetX - startX) * fraction);
             projectile.setY(startY + (targetY - startY) * fraction);
             projectile.setRotation(projectile.getRotation() + 18f);
-            spawnGhost(gameArea, projectile.getX() + PROJECTILE_SIZE * 0.2f,
-                    projectile.getY() + PROJECTILE_SIZE * 0.2f,
-                    (int) (PROJECTILE_SIZE * 0.6f), (int) (PROJECTILE_SIZE * 0.6f),
-                    Color.parseColor("#44FFEB3B"));
+            if (GhostPool.due(lastGhost)) {
+                ghostPool.ghost(projectile.getX() + PROJECTILE_SIZE * 0.2f,
+                        projectile.getY() + PROJECTILE_SIZE * 0.2f,
+                        PROJECTILE_SIZE * 0.6f, PROJECTILE_SIZE * 0.6f, GHOST_PROJECTILE);
+            }
 
-            for (SeaEnemy enemy : ctx.getEnemies()) {
+            for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+                SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
                 if (enemy.isAlive && enemy.containerView != null
                         && isColliding(projectile, enemy.containerView)) {
                     hasHit[0] = true;
@@ -338,7 +323,8 @@ public final class SkillEffects {
                 .withEndAction(() -> gameArea.removeView(flashView)).start();
 
         final List<SeaEnemy> targets = new ArrayList<>();
-        for (SeaEnemy e : ctx.getEnemies()) {
+        for (int eIdx = 0; eIdx < ctx.getEnemies().size(); eIdx++) {
+            SeaEnemy e = ctx.getEnemies().get(eIdx);
             if (e.isAlive) targets.add(e);
         }
 

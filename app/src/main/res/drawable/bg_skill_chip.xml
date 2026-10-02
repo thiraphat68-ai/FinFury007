@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ป้ายชื่อประเภทสกิลบนหน้าเลือกฮีโร่ (Skill 1 / Skill 2 / Ultimate Skill) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#0A1420" />
+    <corners android:radius="10dp" />
+</shape>

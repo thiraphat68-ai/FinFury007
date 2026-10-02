@@ -119,6 +119,8 @@ public class BattleActivity extends BaseActivity implements BattleContext {
     public void showUltimateDuration(long durationMs) {
         ultTimerTotalMs = Math.max(1, durationMs);
         ultTimerRemainingMs = durationMs;
+        lastUltTenths = -1;
+        lastUltBarProgress = -1;
         updateUltimateTimerUI();
         layoutUltTimer.setVisibility(View.VISIBLE);
     }
@@ -139,11 +141,25 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         }
     }
 
-    @SuppressLint("SetTextI18n")
+    // ข้อความ/หลอดอัปเดตเฉพาะตอนค่าเปลี่ยนจริง (เศษวินาที 0.1 s หรือหลอดขยับ 1/1000) ไม่ format ทุกเฟรม
+    private int lastUltTenths = -1;
+    private int lastUltBarProgress = -1;
+    private final StringBuilder ultTimerText = new StringBuilder(32);
+
     private void updateUltimateTimerUI() {
-        barUltTime.setProgress((int) (ultTimerRemainingMs * 1000f / ultTimerTotalMs));
-        txtUltTimer.setText(String.format(Locale.US, "%s %.1fs",
-                playerHero.getUltimateName(), Math.max(0f, ultTimerRemainingMs) / 1000f));
+        int progress = (int) (ultTimerRemainingMs * 1000f / ultTimerTotalMs);
+        if (progress != lastUltBarProgress) {
+            lastUltBarProgress = progress;
+            barUltTime.setProgress(progress);
+        }
+        int tenths = (int) (Math.max(0f, ultTimerRemainingMs) / 100f);
+        if (tenths != lastUltTenths) {
+            lastUltTenths = tenths;
+            ultTimerText.setLength(0);
+            ultTimerText.append(playerHero.getUltimateName()).append(' ')
+                    .append(tenths / 10).append('.').append(tenths % 10).append('s');
+            txtUltTimer.setText(ultTimerText);
+        }
     }
 
     @Override
@@ -241,6 +257,8 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         ImageButton btnPause = findViewById(R.id.btnBack);
         if (btnPause != null) btnPause.setOnClickListener(v -> openPauseMenu());
         setupOverlays();
+        // ประตูกันโจทย์ที่ตัวโจทย์เอง: ทุกทางที่เรียก show() ถูกตรวจว่าด่านยังเล่นอยู่และไม่มี overlay อื่น
+        quizManager.setGate(this::canOpenQuiz);
 
         layoutUltTimer = findViewById(R.id.layoutUltTimer);
         barUltTime = findViewById(R.id.barUltTime);
@@ -376,7 +394,8 @@ public class BattleActivity extends BaseActivity implements BattleContext {
                     // (ของเดิมบวกซ้ำ ศัตรูเลยวิ่งไปตีจุดว่างๆ แล้ว HP เราลดทั้งที่ไม่มีใครอยู่ใกล้)
                     float pX = playerContainer.getX();
                     float pY = playerContainer.getY();
-                    for (SeaEnemy enemy : enemyList) {
+                    for (int enemyIdx = 0; enemyIdx < enemyList.size(); enemyIdx++) {
+                        SeaEnemy enemy = enemyList.get(enemyIdx);
                         enemy.updateAI(pX, pY);
                     }
                 }
@@ -474,11 +493,21 @@ public class BattleActivity extends BaseActivity implements BattleContext {
 
     @Override
     public void onHitEnemySuccess() {
+        // ด่านจบแล้ว (ชนะ/แพ้) หรือไม่มีศัตรูเหลือ: ไม่เพิ่มสแตก ไม่เปิดโจทย์
+        if (!isGameRunning || !anyEnemyAlive()) return;
+
         if (currentStack < MAX_STACK) {
             currentStack++;
             updateStackUI();
             if (currentStack >= MAX_STACK) quizManager.show();
         }
+    }
+
+    private boolean anyEnemyAlive() {
+        for (int i = 0; i < enemyList.size(); i++) {
+            if (enemyList.get(i).isAlive) return true;
+        }
+        return false;
     }
 
     @Override
@@ -518,7 +547,8 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         TextView txtStageInfo = findViewById(R.id.txtStageInfo);
         if (txtStageInfo == null) return;
         int alive = 0;
-        for (SeaEnemy e : enemyList) {
+        for (int eIdx = 0; eIdx < enemyList.size(); eIdx++) {
+            SeaEnemy e = enemyList.get(eIdx);
             if (e.isAlive) alive++;
         }
         txtStageInfo.setText(String.format(Locale.US, "ด่าน %d  |  ศัตรูเหลือ %d ตัว", currentStageId, alive));
@@ -591,13 +621,53 @@ public class BattleActivity extends BaseActivity implements BattleContext {
     private void closePauseMenu() {
         overlayPause.setVisibility(View.GONE);
         isGamePaused = false;
+        openPendingQuiz();
     }
+
+    /**
+     * โจทย์ที่ถูกกันไว้เพราะเมนูหยุด/หน้าจออื่นเปิดอยู่ตอนสแตกเต็ม ให้เปิดต่อเมื่อปิดเมนูแล้ว
+     * (สแตกเต็มค้างอยู่ และยังไม่ได้ตอบ/ยังไม่ปลดล็อก ULT) ไม่งั้นสแตกเต็มแล้วโจทย์จะไม่ขึ้นอีกเลย
+     */
+    private void openPendingQuiz() {
+        if (currentStack >= MAX_STACK && !ultimateReady && !ultimateRunning && !quizManager.isShowing()) {
+            quizManager.show();
+        }
+    }
+
+    /** ตอนนี้เปิดโจทย์ได้ไหม: ด่านต้องยังเล่นอยู่ มีศัตรูเหลือ และไม่มี overlay อื่น (เมนูหยุด/ผลลัพธ์/สอนเล่น) เปิดอยู่ */
+    private boolean canOpenQuiz() {
+        return isGameRunning && anyEnemyAlive()
+                && overlayPause.getVisibility() != View.VISIBLE
+                && overlayResult.getVisibility() != View.VISIBLE
+                && findViewById(R.id.overlayTutorial).getVisibility() != View.VISIBLE;
+    }
+
+    /**
+     * ด่านจบ (ชนะ/แพ้): ปิดทุกอย่างที่อาจโผล่ตามมา เหลือแค่หน้าจอผลลัพธ์
+     * - ปิดโจทย์ทันที (ยกเลิกนับเวลา ไม่เรียก onCorrect/onWrong/onTimeout)
+     * - ปิดเมนูหยุดและหน้าสอนเล่น
+     * - ยกเลิกการปล่อย Ultimate อัตโนมัติที่รอเวลาอยู่ และซ่อนหลอดเวลา Ultimate
+     */
+    private void cancelEverythingForStageEnd() {
+        if (quizManager != null) quizManager.dismiss();
+        overlayPause.setVisibility(View.GONE);
+        findViewById(R.id.overlayTutorial).setVisibility(View.GONE);
+        if (pendingAutoUltimate != null) {
+            uiHandler.removeCallbacks(pendingAutoUltimate);
+            pendingAutoUltimate = null;
+        }
+        hideUltimateDuration();
+    }
+
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+    private Runnable pendingAutoUltimate;
 
     private void restartStage() {
         recreate();
     }
 
     private void showResultOverlay(boolean win, int stars) {
+        cancelEverythingForStageEnd();   // หน้าจอชนะ/แพ้มีความสำคัญสูงสุด ที่เหลือต้องปิดหมด
         resetJoystick();
         TextView title = findViewById(R.id.txtResultTitle);
         TextView sub = findViewById(R.id.txtResultSub);
@@ -661,7 +731,8 @@ public class BattleActivity extends BaseActivity implements BattleContext {
 
     private void checkWinCondition() {
         boolean allDead = true;
-        for (SeaEnemy enemy : enemyList) {
+        for (int enemyIdx = 0; enemyIdx < enemyList.size(); enemyIdx++) {
+            SeaEnemy enemy = enemyList.get(enemyIdx);
             if (enemy.isAlive) {
                 allDead = false;
                 break;
@@ -713,11 +784,13 @@ public class BattleActivity extends BaseActivity implements BattleContext {
                         // ฮีโร่อื่น: ตอบถูก -> ปล่อย Ultimate อัตโนมัติ (แบบเดิม)
                         SoundManager.play(SoundManager.Sfx.ULTIMATE);
                         ultimateRunning = true;
-                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                        pendingAutoUltimate = () -> {
+                            pendingAutoUltimate = null;
                             isGamePaused = false;
                             if (!isGameRunning || isFinishing()) return;
                             playerHero.executeUltimateSkill(BattleActivity.this);
-                        }, 600);
+                        };
+                        uiHandler.postDelayed(pendingAutoUltimate, 600);
                     }
 
                     @Override
@@ -812,5 +885,9 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         Choreographer.getInstance().removeFrameCallback(frameCallback);
 
         if (quizManager != null) quizManager.destroy();
+
+        // ทิ้งกอง View เอฟเฟกต์ที่ใช้ซ้ำ (ผูกกับพื้นที่เกมของ Activity นี้)
+        HitEffects.release();
+        GhostPool.release();
     }
 }

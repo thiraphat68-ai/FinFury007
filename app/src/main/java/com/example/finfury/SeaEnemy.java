@@ -46,6 +46,12 @@ public class SeaEnemy {
 
     public boolean isSwallowed() { return swallowed; }
 
+    // เงาตามเส้นทางพุ่ง
+    private static final int TRAIL_COLOR = 0x44FF1744;
+    private final long[] lastTrailMs = {0};
+    private boolean trailStarted = false;
+    private float trailFromX, trailFromY;
+
     private float slowFactor = 1f;
     private long slowUntilMs = 0;
 
@@ -335,7 +341,8 @@ public class SeaEnemy {
                 boolean isAttackerSlotFree = (activeAttackerId == 0 || activeAttackerId == enemyId);
                 // ให้สิทธิ์กับตัวที่รอนานที่สุด ไม่งั้นตัวท้ายลิสต์ (เช่นหมึก) แพ้คิวซ้ำๆ เพราะสิทธิ์ถูกใช้ตลอด
                 boolean outranked = false;
-                for (SeaEnemy o : ctx.getEnemies()) {
+                for (int oIdx = 0; oIdx < ctx.getEnemies().size(); oIdx++) {
+                    SeaEnemy o = ctx.getEnemies().get(oIdx);
                     if (o != this && o.isReadyToAttack(targetX, targetY, now) && o.timeInOrbitMs > timeInOrbitMs) {
                         outranked = true;
                         break;
@@ -357,6 +364,7 @@ public class SeaEnemy {
                     if (attackType == AttackType.DASH) {
                         hasHitPlayerThisDash = false;
                         currentState = State.ATTACKING;
+                        trailStarted = false;
                     } else {
                         // โจมตีระยะไกล: ปล่อยแล้วจบเลย ไม่ต้องพุ่ง กลับไปวนรอบรอรอบถัดไป
                         fireRangedAttack();
@@ -384,10 +392,18 @@ public class SeaEnemy {
                 }
 
                 // ก้าวละหลายร้อย px จึงเช็กทั้งเส้นทางของเฟรมนี้ ไม่งั้นพุ่งข้ามผู้เล่นโดยไม่โดน
+                // เงาตามเส้นทางพุ่ง: เสกไม่ถี่กว่า 40 ms แต่ลากเงาครอบคลุมทางที่เพิ่งผ่านมาตั้งแต่ครั้งก่อน
+                if (!trailStarted) {
+                    trailStarted = true;
+                    trailFromX = currentX;
+                    trailFromY = currentY;
+                }
                 FrameLayout fxArea = ctx.getGameArea();
-                if (fxArea != null) {
-                    HitEffects.trail(fxArea, currentX, currentY, nextX, nextY,
-                            containerView.getWidth(), containerView.getHeight(), Color.parseColor("#44FF1744"));
+                if (fxArea != null && GhostPool.due(lastTrailMs)) {
+                    HitEffects.trail(fxArea, trailFromX, trailFromY, nextX, nextY,
+                            containerView.getWidth(), containerView.getHeight(), TRAIL_COLOR);
+                    trailFromX = nextX;
+                    trailFromY = nextY;
                 }
 
                 // เช็กด้วยจุดกึ่งกลางของทั้งคู่ ให้ตรงกับแถบเส้นทางที่โชว์ตอนเตือน
@@ -416,7 +432,8 @@ public class SeaEnemy {
         }
 
         // 3. เว้นระยะห่างระหว่างศัตรูด้วยกันเอง (ตัวที่กำลังพุ่งทะลุจะไม่โดนผลัก)
-        for (SeaEnemy other : ctx.getEnemies()) {
+        for (int otherIdx = 0; otherIdx < ctx.getEnemies().size(); otherIdx++) {
+            SeaEnemy other = ctx.getEnemies().get(otherIdx);
             if (currentState == State.ORBIT_AND_WAIT && other != this && other.isAlive && other.containerView != null) {
                 float ox = other.containerView.getX();
                 float oy = other.containerView.getY();
@@ -531,9 +548,12 @@ public class SeaEnemy {
 
     private void clearAttackPath() {
         if (attackPathView != null) {
-            attackPathView.animate().cancel();
-            if (attackPathView.getParent() instanceof FrameLayout) {
-                ((FrameLayout) attackPathView.getParent()).removeView(attackPathView);
+            // เส้นทางพุ่งมาจากกองที่ใช้ซ้ำ: คืนเข้ากอง (ซ่อน) ส่วนวิวอื่น (เช่น กรวยหมึก) ลบออกตามเดิม
+            if (!HitEffects.releaseAttackPath(attackPathView)) {
+                attackPathView.animate().cancel();
+                if (attackPathView.getParent() instanceof FrameLayout) {
+                    ((FrameLayout) attackPathView.getParent()).removeView(attackPathView);
+                }
             }
             attackPathView = null;
         }

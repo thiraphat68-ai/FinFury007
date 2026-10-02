@@ -72,7 +72,7 @@ public class Octopus extends Hero {
 
     @Override public String getSkill1Name() { return "Tentacle Loop"; }
     @Override public String getSkill1Icon() { return "🐙"; }
-    @Override public String getSkill1Description() { return "หวดหนวดรอบตัว 3 รอบ รอบละ 1 ดาเมจ ศัตรูในรัศมี 200 px"; }
+    @Override public String getSkill1Description() { return "หวดหนวดรอบตัว 3 รอบ รอบละ 1 ดาเมจ ใส่ศัตรูในรัศมี"; }
 
     @Override public String getSkill2Name() { return "Bug Ink"; }
     @Override public String getSkill2Icon() { return "🖋️"; }
@@ -111,7 +111,8 @@ public class Octopus extends Hero {
             // หนวดหวดโดนกลางรอบ (ครบครึ่งรอบแล้วคิดดาเมจรอบนั้น)
             while (applied[0] < LOOP_SPINS && revolutions >= applied[0] + 0.5f) {
                 applied[0]++;
-                for (SeaEnemy enemy : ctx.getEnemies()) {
+                for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+                    SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
                     if (!enemy.isAlive || enemy.containerView == null) continue;
                     View ev = enemy.containerView;
                     float ex = ev.getX() + ev.getWidth() / 2f;
@@ -179,7 +180,8 @@ public class Octopus extends Hero {
             blob.setScaleX(squash);
             blob.setScaleY(2f - squash);
 
-            for (SeaEnemy enemy : ctx.getEnemies()) {
+            for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+                SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
                 if (!enemy.isAlive || enemy.containerView == null) continue;
                 View ev = enemy.containerView;
                 float ex = ev.getX() + ev.getWidth() / 2f;
@@ -235,7 +237,8 @@ public class Octopus extends Hero {
             // ครึ่งวินาทีสุดท้ายแอ่งค่อยๆ จาง
             puddle.setAlpha(f > 0.85f ? (1f - f) / 0.15f : 1f);
 
-            for (SeaEnemy enemy : ctx.getEnemies()) {
+            for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+                SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
                 if (!enemy.isAlive || enemy.containerView == null) continue;
                 View ev = enemy.containerView;
                 float ex = ev.getX() + ev.getWidth() / 2f;
@@ -269,7 +272,8 @@ public class Octopus extends Hero {
         releaseAll();   // ใช้ซ้ำระหว่างตรึงอยู่ = เริ่มใหม่
 
         final List<SeaEnemy> victims = new ArrayList<>();
-        for (SeaEnemy e : ctx.getEnemies()) {
+        for (int eIdx = 0; eIdx < ctx.getEnemies().size(); eIdx++) {
+            SeaEnemy e = ctx.getEnemies().get(eIdx);
             if (e.isAlive && !e.isSwallowed() && e.containerView != null) victims.add(e);
         }
         if (victims.isEmpty()) {
@@ -342,14 +346,16 @@ public class Octopus extends Hero {
             while (ticks[0] < HOLD_MS / SQUEEZE_INTERVAL_MS
                     && elapsed[0] >= PULL_MS + (ticks[0] + 1) * SQUEEZE_INTERVAL_MS) {
                 ticks[0]++;
-                for (SeaEnemy e : held) {
+                for (int eIdx = 0; eIdx < held.size(); eIdx++) {
+                    SeaEnemy e = held.get(eIdx);
                     if (e.isAlive) e.takeDamage(SQUEEZE_DAMAGE, false);
                 }
                 grabView.pulse();
             }
 
             boolean anyAlive = false;
-            for (SeaEnemy e : held) {
+            for (int eIdx = 0; eIdx < held.size(); eIdx++) {
+                SeaEnemy e = held.get(eIdx);
                 if (e.isAlive) {
                     anyAlive = true;
                     break;
@@ -407,6 +413,7 @@ public class Octopus extends Hero {
         private final Paint glow = stroke(Color.parseColor("#66FF5252"), 26f);
         private final Paint core = stroke(Color.parseColor("#FFD32F2F"), 12f);
         private final Paint ring = stroke(Color.parseColor("#33FF5252"), 4f);
+        private final Path spinPath = new Path();
         private float cx, cy, revolutions;
 
         SpinView(Context c) {
@@ -426,7 +433,7 @@ public class Octopus extends Hero {
             canvas.drawCircle(cx, cy, LOOP_RADIUS, ring);
 
             double base = revolutions * Math.PI * 2;
-            Path path = new Path();
+            Path path = spinPath;
             for (int i = 0; i < TENTACLES; i++) {
                 double a0 = base + Math.PI * 2 * i / TENTACLES;
                 path.reset();
@@ -482,6 +489,8 @@ public class Octopus extends Hero {
         private final Paint core = stroke(Color.parseColor("#FFD32F2F"), 12f);
         private final View player;
         private final List<SeaEnemy> victims;
+        private final Path grabPath = new Path();
+        private final List<SeaEnemy> aliveBuf = new ArrayList<>();
         private float reach = 0f;
         private float pulse = 0f;
 
@@ -503,8 +512,10 @@ public class Octopus extends Hero {
 
         @Override
         protected void onDraw(@NonNull Canvas canvas) {
-            List<SeaEnemy> alive = new ArrayList<>();
-            for (SeaEnemy e : victims) {
+            List<SeaEnemy> alive = aliveBuf;
+            alive.clear();   // ใช้ลิสต์เดิมซ้ำทุกเฟรม
+            for (int eIdx = 0; eIdx < victims.size(); eIdx++) {
+                SeaEnemy e = victims.get(eIdx);
                 if (e.isAlive && e.containerView != null) alive.add(e);
             }
             if (alive.isEmpty()) return;
@@ -516,7 +527,7 @@ public class Octopus extends Hero {
             glow.setStrokeWidth(24f + 14f * pulse);
             core.setStrokeWidth(12f + 6f * pulse);
 
-            Path path = new Path();
+            Path path = grabPath;
             for (int i = 0; i < TENTACLES; i++) {
                 // หนวด 8 เส้นแบ่งกันไปรัดศัตรูที่เหลือ (ถ้าศัตรูน้อยกว่า 8 หลายเส้นรัดตัวเดียวกัน)
                 SeaEnemy e = alive.get(i % alive.size());

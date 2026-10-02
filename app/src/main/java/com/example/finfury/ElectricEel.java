@@ -59,11 +59,12 @@ public class ElectricEel extends Hero {
 
     @Override public String getSkill1Name() { return "Magnetic Repulsion"; }
     @Override public String getSkill1Icon() { return "🧲"; }
-    @Override public String getSkill1Description() { return "คลื่นแม่เหล็กรัศมี 220 px ดาเมจ 2 ผลักถอย 250 px ชนขอบจอ/ศัตรูอื่นโดนอีก 2"; }
+    @Override public String getSkill1Description() {
+        return "ปล่อยคลื่นแม่เหล็กรอบตัว โดนผลักถอยดาเมจ 2 หน่วย ชนขอบจอ/ศัตรูอื่นโดนอีก 2 ดาเมจ"; }
 
     @Override public String getSkill2Name() { return "Particle Accelerator Shot"; }
     @Override public String getSkill2Icon() { return "⚛️"; }
-    @Override public String getSkill2Description() { return "กระสุนที่เร่งความเร็วตลอดทาง ยิ่งไกลยิ่งแรง 1 ถึง 4 ดาเมจที่ 1100 px"; }
+    @Override public String getSkill2Description() { return "กระสุนที่เร่งความเร็วตลอดทาง ยิ่งไกลยิ่งแรง 1 ถึง 4 ดาเมจ"; }
 
     @Override public String getUltimateName() { return "Railgun"; }
     @Override public String getUltimateIcon() { return "🚀"; }
@@ -97,7 +98,8 @@ public class ElectricEel extends Hero {
         });
         fx.start();
 
-        for (SeaEnemy enemy : ctx.getEnemies()) {
+        for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+            SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
             if (!enemy.isAlive || enemy.containerView == null) continue;
             View ev = enemy.containerView;
             float ex = ev.getX() + ev.getWidth() / 2f;
@@ -168,7 +170,8 @@ public class ElectricEel extends Hero {
         View a = self.containerView;
         float ax = a.getX() + a.getWidth() / 2f;
         float ay = a.getY() + a.getHeight() / 2f;
-        for (SeaEnemy o : ctx.getEnemies()) {
+        for (int oIdx = 0; oIdx < ctx.getEnemies().size(); oIdx++) {
+            SeaEnemy o = ctx.getEnemies().get(oIdx);
             if (o == self || !o.isAlive || o.containerView == null) continue;
             View b = o.containerView;
             float ox = b.getX() + b.getWidth() / 2f - ax;
@@ -202,6 +205,7 @@ public class ElectricEel extends Hero {
         area.addView(orb);
 
         final boolean[] landed = {false};
+        final long[] trailTimer = {0};   // เสกเงาไม่ถี่กว่า 40 ms
         final float[] prevDist = {0f};
 
         ValueAnimator anim = ValueAnimator.ofFloat(0f, 1f);
@@ -221,7 +225,8 @@ public class ElectricEel extends Hero {
                 float px = startX + dirX * d;
                 float py = startY + dirY * d;
                 float orbR = 14f + 20f * (d / SHOT_RANGE);
-                for (SeaEnemy enemy : ctx.getEnemies()) {
+                for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+                    SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
                     if (!enemy.isAlive || enemy.containerView == null) continue;
                     View ev = enemy.containerView;
                     float ex = ev.getX() + ev.getWidth() / 2f;
@@ -245,7 +250,9 @@ public class ElectricEel extends Hero {
             orb.setX(startX + dirX * dist - box / 2f);
             orb.setY(startY + dirY * dist - box / 2f);
             // ท้ายกระสุนทิ้งเงาสว่าง ยิ่งเร็วยิ่งยาว
-            spawnTrail(area, startX + dirX * dist, startY + dirY * dist, 10f + 26f * charge);
+            if (GhostPool.due(trailTimer)) {
+                spawnTrail(area, startX + dirX * dist, startY + dirY * dist, 10f + 26f * charge);
+            }
         });
         anim.addListener(new AnimatorListenerAdapter() {
             @Override
@@ -339,7 +346,8 @@ public class ElectricEel extends Hero {
         flash.animate().alpha(0f).setDuration(220).withEndAction(() -> removeFromParent(flash)).start();
 
         // ทะลุทุกตัวที่อยู่ในแนวลำแสง
-        for (SeaEnemy enemy : ctx.getEnemies()) {
+        for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+            SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
             if (!enemy.isAlive || enemy.containerView == null) continue;
             View ev = enemy.containerView;
             float px = ev.getX() + ev.getWidth() / 2f;
@@ -393,19 +401,11 @@ public class ElectricEel extends Hero {
 
     /** เงาสว่างจางๆ ทิ้งไว้ตามเส้นทางกระสุน */
     private static void spawnTrail(FrameLayout area, float cx, float cy, float size) {
-        View t = new View(area.getContext());
-        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-        bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-        bg.setColor(Color.parseColor("#6600E5FF"));
-        t.setBackground(bg);
-        int d = (int) size;
-        t.setLayoutParams(new FrameLayout.LayoutParams(d, d));
-        t.setX(cx - d / 2f);
-        t.setY(cy - d / 2f);
-        area.addView(t);
-        t.animate().alpha(0f).scaleX(0.2f).scaleY(0.2f).setDuration(260)
-                .withEndAction(() -> removeFromParent(t)).start();
+        // วงกลมจากกองที่ใช้ซ้ำ (ไม่สร้าง View ใหม่ทุกเฟรม)
+        GhostPool.ghosts(area).spark(cx, cy, (int) size, TRAIL_COLOR, 260);
     }
+
+    private static final int TRAIL_COLOR = 0x6600E5FF;
 
     private static Paint stroke(int color, float width) {
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -420,6 +420,7 @@ public class ElectricEel extends Hero {
     private static class FieldView extends View {
         private final Paint ring = stroke(Color.parseColor("#FF80D8FF"), 8f);
         private final Paint lines = stroke(Color.parseColor("#FFB3E5FC"), 5f);
+        private final Path fieldPath = new Path();
         private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final float cx, cy;
         private float progress;
@@ -447,7 +448,7 @@ public class ElectricEel extends Hero {
 
             // เส้นแรงโค้งออกจากตัว 8 เส้น บิดเป็นเกลียวตามระยะ
             lines.setAlpha(alpha);
-            Path p = new Path();
+            Path p = fieldPath;   // ใช้ Path เดิมซ้ำ (reset ในลูป)
             for (int i = 0; i < 8; i++) {
                 double a0 = Math.PI * 2 * i / 8;
                 p.reset();
@@ -466,6 +467,12 @@ public class ElectricEel extends Hero {
     }
 
     /** ลูกกระสุนอนุภาค: ยิ่งไกล (charge ใกล้ 1) ยิ่งใหญ่ ขาวสว่างขึ้น และมีวงแหวนพลังงานล้อมรอบ */
+    // สีของลูกพลังงาน (ไล่สีจากกลางออกขอบ)
+    private static final int ORB_GLOW_IN = 0xCC00E5FF;
+    private static final int ORB_GLOW_OUT = 0x0000E5FF;
+    private static final int CHARGE_ORB_IN = 0xEE80D8FF;
+    private static final int CHARGE_ORB_OUT = 0x0000B0FF;
+
     private static class OrbView extends View {
         private final Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint core = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -475,6 +482,7 @@ public class ElectricEel extends Hero {
         OrbView(Context c) {
             super(c);
             core.setColor(Color.WHITE);
+            glow.setShader(new RadialGradient(0f, 0f, 1f, ORB_GLOW_IN, ORB_GLOW_OUT, Shader.TileMode.CLAMP));
         }
 
         void setCharge(float charge) {
@@ -486,10 +494,12 @@ public class ElectricEel extends Hero {
         protected void onDraw(@NonNull Canvas canvas) {
             float cx = getWidth() / 2f, cy = getHeight() / 2f;
             float r = 14f + 20f * charge;
-            glow.setShader(new RadialGradient(cx, cy, r * 2.4f,
-                    new int[]{Color.parseColor("#CC00E5FF"), Color.parseColor("#0000E5FF")},
-                    null, Shader.TileMode.CLAMP));
-            canvas.drawCircle(cx, cy, r * 2.4f, glow);
+            // วงเรืองแสง: ไล่สีรัศมี 1 สร้างครั้งเดียว แล้วขยายด้วย canvas.scale (ไม่สร้าง RadialGradient ใหม่ทุกเฟรม)
+            canvas.save();
+            canvas.translate(cx, cy);
+            canvas.scale(r * 2.4f, r * 2.4f);
+            canvas.drawCircle(0f, 0f, 1f, glow);
+            canvas.restore();
             canvas.drawCircle(cx, cy, r * 0.7f, core);
             halo.setAlpha((int) (80 + 175 * charge));
             canvas.drawCircle(cx, cy, r * 1.3f, halo);
@@ -509,6 +519,7 @@ public class ElectricEel extends Hero {
             this.length = length;
             aimLine.setPathEffect(new DashPathEffect(new float[]{28f, 18f}, 0f));
             core.setColor(Color.WHITE);
+            orb.setShader(new RadialGradient(0f, 0f, 1f, CHARGE_ORB_IN, CHARGE_ORB_OUT, Shader.TileMode.CLAMP));
         }
 
         void update(float cx, float cy, float angle, float frac) {
@@ -529,10 +540,11 @@ public class ElectricEel extends Hero {
 
             float ox = cx + dx * 60f, oy = cy + dy * 60f;
             float r = 12f + 46f * frac;
-            orb.setShader(new RadialGradient(ox, oy, r * 2f,
-                    new int[]{Color.parseColor("#EE80D8FF"), Color.parseColor("#0000B0FF")},
-                    null, Shader.TileMode.CLAMP));
-            canvas.drawCircle(ox, oy, r * 2f, orb);
+            canvas.save();
+            canvas.translate(ox, oy);
+            canvas.scale(r * 2f, r * 2f);
+            canvas.drawCircle(0f, 0f, 1f, orb);
+            canvas.restore();
             canvas.drawCircle(ox, oy, r * 0.6f, core);
         }
     }

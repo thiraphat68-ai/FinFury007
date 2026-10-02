@@ -1,10 +1,14 @@
 package com.example.finfury;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.DashPathEffect;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Typeface;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -14,23 +18,101 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 
+import java.util.ArrayList;
+
 /**
  * เอฟเฟกต์ตอนโจมตีโดนศัตรู: วงคลื่นกระแทก + ตัวเลขดาเมจลอยขึ้น + จอสั่น
+ *
+ * ทุก View เอฟเฟกต์ "สร้างครั้งเดียวแล้วใช้ซ้ำ" (วงกระแทก/ตัวเลขดาเมจอย่างละ 6 ตัวสูงสุด ถ้าเต็มจะแทนตัวที่เก่าที่สุด)
+ * และแต่ละตัวมีขนาดแค่พอครอบเอฟเฟกต์ของมันเอง ไม่ใช้ MATCH_PARENT ทั้งฉาก
+ * ยกเว้นแฟลชแดงตอนผู้เล่นโดนตี ซึ่งตัวเอฟเฟกต์เองคือการวาบทั้งจอ จึงยังคลุมทั้งพื้นที่ แต่ใช้ View เดียวซ้ำ
  */
 public final class HitEffects {
 
     private HitEffects() {}
 
+    // ---------- สีที่ใช้บ่อย (ไม่ parse ใหม่ทุกครั้ง) ----------
+    private static final int ORANGE = 0xFFFF9800;
+    private static final int YELLOW = 0xFFFFEB3B;
+    private static final int RED = 0xFFFF1744;
+    private static final int RED_ACCENT = 0xFFFF5252;
+    private static final int PINK_LIGHT = 0xFFFFCDD2;
+    private static final int FLASH_RED = 0x26FF0000;
+    private static final int PATH_BAND = 0x33FF1744;
+    private static final int PATH_DASH = 0xCCFF5252;
+
+    private static final int MAX_BURSTS = 6;
+    private static final int MAX_POPUPS = 6;
+    private static final int MAX_PATHS = 8;
+
+    // ข้อความดาเมจสร้างไว้ก่อน ("-1", "-2", ...) กันสร้าง String ใหม่ทุกครั้งที่โดน
+    private static final String[] DAMAGE_TEXT = new String[40];
+
+    static {
+        for (int i = 0; i < DAMAGE_TEXT.length; i++) DAMAGE_TEXT[i] = "-" + i;
+    }
+
+    // ---------- กองเอฟเฟกต์ที่ใช้ซ้ำ (ผูกกับพื้นที่เกมของด่านปัจจุบัน) ----------
+    private static FrameLayout poolArea;
+    private static final BurstView[] bursts = new BurstView[MAX_BURSTS];
+    private static int burstNext = 0;
+    private static final TextView[] popups = new TextView[MAX_POPUPS];
+    private static final boolean[] popupBig = new boolean[MAX_POPUPS];
+    private static final Runnable[] popupHide = new Runnable[MAX_POPUPS];
+    private static int popupNext = 0;
+    private static View flashView;
+    private static final ArrayList<PathView> paths = new ArrayList<>();
+
+    // จอสั่น: animator ตัวเดียวใช้ซ้ำ
+    private static ValueAnimator shakeAnim;
+    private static View shakeTarget;
+    private static float shakeAmp;
+
+    /** ผูกกองเอฟเฟกต์กับพื้นที่เกมนี้ (ถ้าเป็นพื้นที่ใหม่ เช่น เริ่มด่านใหม่ ทิ้งกองเก่า) */
+    private static void bind(FrameLayout area) {
+        if (poolArea == area) return;
+        clearPools();
+        poolArea = area;
+    }
+
+    private static void clearPools() {
+        for (int i = 0; i < bursts.length; i++) bursts[i] = null;
+        for (int i = 0; i < popups.length; i++) {
+            popups[i] = null;
+            popupHide[i] = null;
+        }
+        flashView = null;
+        paths.clear();
+        if (shakeAnim != null) shakeAnim.cancel();
+        shakeAnim = null;
+        shakeTarget = null;
+        burstNext = 0;
+        popupNext = 0;
+    }
+
+    /** เรียกตอนปิดด่าน: เอา View เอฟเฟกต์ออกจากฉากและล้างกอง */
+    public static void release() {
+        if (poolArea != null) {
+            for (BurstView b : bursts) if (b != null) poolArea.removeView(b);
+            for (TextView t : popups) if (t != null) poolArea.removeView(t);
+            if (flashView != null) poolArea.removeView(flashView);
+            for (PathView p : paths) poolArea.removeView(p);
+        }
+        clearPools();
+        poolArea = null;
+    }
+
     public static void impact(BattleContext ctx, View target, int damage) {
         FrameLayout area = ctx.getGameArea();
         if (area == null || target == null) return;
+        bind(area);
 
         float cx = target.getX() + target.getWidth() / 2f;
         float cy = target.getY() + target.getHeight() / 2f;
 
         boolean big = damage >= 3;
-        burst(ctx.getContext(), area, cx, cy, big, Color.parseColor("#FF9800"), Color.parseColor("#FFEB3B"));
-        damagePopup(ctx.getContext(), area, cx, cy, damage, big, Color.parseColor("#FFEB3B"));
+        burst(ctx.getContext(), area, cx, cy, big, ORANGE, YELLOW);
+        damagePopup(ctx.getContext(), area, cx, cy, damage, big, YELLOW);
         shake(area, big ? 10f : 5f);
     }
 
@@ -38,81 +120,154 @@ public final class HitEffects {
     public static void playerHit(BattleContext ctx, View player, int damage) {
         FrameLayout area = ctx.getGameArea();
         if (area == null || player == null) return;
+        bind(area);
 
         float cx = player.getX() + player.getWidth() / 2f;
         float cy = player.getY() + player.getHeight() / 2f;
-        int red = Color.parseColor("#FF1744");
 
-        burst(ctx.getContext(), area, cx, cy, false, red, Color.parseColor("#FFCDD2"));
-        damagePopup(ctx.getContext(), area, cx, cy, damage, false, Color.parseColor("#FF5252"));
+        burst(ctx.getContext(), area, cx, cy, false, RED, PINK_LIGHT);
+        damagePopup(ctx.getContext(), area, cx, cy, damage, false, RED_ACCENT);
         shake(area, 9f);
-
-        View flash = new View(ctx.getContext());
-        flash.setBackgroundColor(Color.parseColor("#26FF0000"));
-        flash.setLayoutParams(new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-        area.addView(flash);
-        flash.animate().alpha(0f).setDuration(200).withEndAction(() -> area.removeView(flash)).start();
+        flashRed(ctx.getContext(), area);
     }
 
-    /** วาดเงาจางๆ ต่อเนื่องตามเส้นทางพุ่ง (ทุก ~45px) เพื่อให้เห็นแนวพุ่งแม้ความเร็วสูงมาก */
+    /** แฟลชแดงเต็มพื้นที่ View เดียวใช้ซ้ำ ขนาดเท่าพื้นที่เกมพอดี */
+    private static void flashRed(Context c, FrameLayout area) {
+        if (flashView == null) {
+            flashView = new View(c);
+            flashView.setBackgroundColor(FLASH_RED);
+            flashView.setLayoutParams(new FrameLayout.LayoutParams(1, 1));
+            flashView.setVisibility(View.GONE);
+            area.addView(flashView);
+        }
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) flashView.getLayoutParams();
+        if (lp.width != area.getWidth() || lp.height != area.getHeight()) {
+            lp.width = area.getWidth();
+            lp.height = area.getHeight();
+            flashView.setLayoutParams(lp);
+        }
+        flashView.animate().cancel();
+        flashView.setAlpha(1f);
+        flashView.setVisibility(View.VISIBLE);
+        flashView.animate().alpha(0f).setDuration(200).withEndAction(HIDE_FLASH);
+    }
+
+    private static final Runnable HIDE_FLASH = new Runnable() {
+        @Override
+        public void run() {
+            if (flashView != null) flashView.setVisibility(View.GONE);
+        }
+    };
+
+    /**
+     * เงาจางๆ ตามเส้นทางพุ่ง (ทุก ~80px ไม่เกิน 6 จุด) ให้เห็นแนวพุ่งแม้ความเร็วสูงมาก
+     * ใช้เงาจากกองที่ใช้ซ้ำ ผู้เรียกควรเรียกไม่ถี่กว่า GhostPool.MIN_SPAWN_INTERVAL_MS
+     */
     public static void trail(FrameLayout area, float x0, float y0, float x1, float y1,
                              int w, int h, int color) {
         float dist = (float) Math.hypot(x1 - x0, y1 - y0);
         int n = Math.min(6, Math.max(1, (int) (dist / 80f)));
+        GhostPool pool = GhostPool.ghosts(area);
         for (int i = 1; i <= n; i++) {
             float t = i / (float) n;
-            View ghost = new View(area.getContext());
-            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-            bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-            bg.setColor(color);
-            ghost.setBackground(bg);
-            ghost.setLayoutParams(new FrameLayout.LayoutParams(w, h));
-            ghost.setX(x0 + (x1 - x0) * t);
-            ghost.setY(y0 + (y1 - y0) * t);
-            area.addView(ghost);
-            ghost.animate().alpha(0f).scaleX(0.3f).scaleY(0.3f).setDuration(250)
-                    .withEndAction(() -> area.removeView(ghost)).start();
+            pool.ghost(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, w, h, color);
         }
     }
 
+    // ---------------------------------------------------------
+    // เส้นทางพุ่ง/พื้นที่เตือนของศัตรู
+    // ---------------------------------------------------------
+
     /**
      * โชว์เส้นทางพุ่งของศัตรูก่อนโจมตี: แถบแดงโปร่งใสกว้างเท่าระยะโดนจริง + เส้นประกลาง + หัวลูกศร
-     * ค่อยๆ ชัดขึ้นตลอดช่วงเตือน คืน View ให้ผู้เรียกลบเองเมื่อพุ่งหรือถูกขัดจังหวะ
+     * ค่อยๆ ชัดขึ้นตลอดช่วงเตือน View มีขนาดแค่กรอบของเส้นทางและใช้ซ้ำจากกอง
+     * คืน View ให้ผู้เรียกส่งกลับด้วย releaseAttackPath() เมื่อพุ่งหรือถูกขัดจังหวะ
      */
     public static View showAttackPath(FrameLayout area, float x0, float y0, float x1, float y1,
                                       float bandWidth, long durationMs) {
-        PathView view = new PathView(area.getContext(), x0, y0, x1, y1, bandWidth);
-        view.setLayoutParams(new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        bind(area);
+        PathView view = acquirePath(area);
+        view.configure(x0, y0, x1, y1, bandWidth);
+        view.animate().cancel();
         view.setAlpha(0.25f);
-        area.addView(view);
-        view.animate().alpha(1f).setDuration(durationMs).start();
+        view.setVisibility(View.VISIBLE);
+        view.animate().alpha(1f).setDuration(durationMs);
         return view;
+    }
+
+    /** คืนเส้นทางเตือนเข้ากอง (ซ่อน) คืน true ถ้า view นี้เป็นของกองนี้ false = ผู้เรียกต้องลบเอง */
+    public static boolean releaseAttackPath(View view) {
+        if (!(view instanceof PathView)) return false;
+        view.animate().cancel();
+        view.setVisibility(View.GONE);
+        ((PathView) view).inUse = false;
+        return true;
+    }
+
+    private static PathView acquirePath(FrameLayout area) {
+        for (PathView p : paths) {
+            if (!p.inUse) {
+                p.inUse = true;
+                return p;
+            }
+        }
+        if (paths.size() < MAX_PATHS) {
+            PathView p = new PathView(area.getContext());
+            p.setLayoutParams(new FrameLayout.LayoutParams(1, 1));
+            p.setVisibility(View.GONE);
+            area.addView(p);
+            paths.add(p);
+            p.inUse = true;
+            return p;
+        }
+        PathView oldest = paths.get(0);   // เต็มกอง: แทนตัวแรก (ไม่น่าเกิด เพราะมีศัตรูแค่ 5 ตัว)
+        oldest.inUse = true;
+        return oldest;
     }
 
     private static class PathView extends View {
         private final Paint band = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint dash = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint arrow = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final float x0, y0, x1, y1;
+        private final Path head = new Path();
+        private float x0, y0, x1, y1;     // พิกัดเทียบมุมซ้ายบนของ View นี้
+        boolean inUse = false;
 
-        PathView(Context c, float x0, float y0, float x1, float y1, float bandWidth) {
+        PathView(Context c) {
             super(c);
-            this.x0 = x0;
-            this.y0 = y0;
-            this.x1 = x1;
-            this.y1 = y1;
             band.setStyle(Paint.Style.STROKE);
-            band.setStrokeWidth(bandWidth);
             band.setStrokeCap(Paint.Cap.BUTT);
-            band.setColor(Color.parseColor("#33FF1744"));
+            band.setColor(PATH_BAND);
             dash.setStyle(Paint.Style.STROKE);
             dash.setStrokeWidth(6f);
-            dash.setColor(Color.parseColor("#CCFF5252"));
-            dash.setPathEffect(new android.graphics.DashPathEffect(new float[]{26f, 18f}, 0f));
+            dash.setColor(PATH_DASH);
+            dash.setPathEffect(new DashPathEffect(new float[]{26f, 18f}, 0f));
             arrow.setStyle(Paint.Style.FILL);
-            arrow.setColor(Color.parseColor("#CCFF5252"));
+            arrow.setColor(PATH_DASH);
+        }
+
+        /** ตั้งตำแหน่ง/ขนาด View ให้พอดีกรอบของเส้น + ส่วนยื่นของแถบและหัวลูกศร */
+        void configure(float ax, float ay, float bx, float by, float bandWidth) {
+            float pad = bandWidth / 2f + 70f;
+            float left = Math.min(ax, bx) - pad;
+            float top = Math.min(ay, by) - pad;
+            int w = (int) Math.ceil(Math.abs(bx - ax) + 2 * pad);
+            int h = (int) Math.ceil(Math.abs(by - ay) + 2 * pad);
+
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) getLayoutParams();
+            if (lp.width != w || lp.height != h) {
+                lp.width = w;
+                lp.height = h;
+                setLayoutParams(lp);
+            }
+            setX(left);
+            setY(top);
+            x0 = ax - left;
+            y0 = ay - top;
+            x1 = bx - left;
+            y1 = by - top;
+            band.setStrokeWidth(bandWidth);
+            invalidate();
         }
 
         @Override
@@ -124,7 +279,7 @@ public final class HitEffects {
             if (len < 1f) return;
             float ux = (x1 - x0) / len, uy = (y1 - y0) / len;
             float size = 34f;
-            android.graphics.Path head = new android.graphics.Path();
+            head.reset();
             head.moveTo(x1 + ux * size, y1 + uy * size);
             head.lineTo(x1 - uy * size * 0.8f, y1 + ux * size * 0.8f);
             head.lineTo(x1 + uy * size * 0.8f, y1 - ux * size * 0.8f);
@@ -138,114 +293,169 @@ public final class HitEffects {
     }
 
     // ---------------------------------------------------------
-    // วงแหวนกระแทก + เส้นประกายพุ่งออกรอบตัว
+    // วงแหวนกระแทก + เส้นประกายพุ่งออกรอบตัว (กองสูงสุด 6 ตัว)
     // ---------------------------------------------------------
     private static void burst(Context c, FrameLayout area, float cx, float cy, boolean big, int glow, int spikeColor) {
-        final float maxRadius = dp(c, big ? 70 : 55);
-        BurstView view = new BurstView(c, cx, cy, maxRadius, glow, spikeColor);
-        view.setLayoutParams(new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-        area.addView(view);
-
-        ValueAnimator anim = ValueAnimator.ofFloat(0f, 1f);
-        anim.setDuration(300);
-        anim.addUpdateListener(a -> view.setProgress((float) a.getAnimatedValue()));
-        anim.addListener(new android.animation.AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(android.animation.Animator animation) {
-                area.removeView(view);
-            }
-        });
-        anim.start();
+        BurstView view = bursts[burstNext];
+        if (view == null) {
+            view = new BurstView(c, dp(c, 70));
+            area.addView(view);
+            bursts[burstNext] = view;
+        }
+        burstNext = (burstNext + 1) % MAX_BURSTS;
+        view.play(cx, cy, dp(c, big ? 70 : 55), glow, spikeColor);
     }
 
     // ---------------------------------------------------------
-    // ตัวเลขดาเมจลอยขึ้นแล้วจางหาย
+    // ตัวเลขดาเมจลอยขึ้นแล้วจางหาย (กองสูงสุด 6 ตัว กล่องขนาดคงที่ ชิดล่าง)
     // ---------------------------------------------------------
     private static void damagePopup(Context c, FrameLayout area, float cx, float cy, int damage, boolean big, int color) {
-        TextView tv = new TextView(c);
-        tv.setText("-" + damage);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, big ? 26 : 20);
-        tv.setTypeface(Typeface.DEFAULT_BOLD);
+        int slot = popupNext;
+        popupNext = (popupNext + 1) % MAX_POPUPS;
+
+        TextView tv = popups[slot];
+        if (tv == null) {
+            tv = new TextView(c);
+            tv.setTypeface(Typeface.DEFAULT_BOLD);
+            tv.setShadowLayer(8f, 0f, 0f, Color.BLACK);
+            tv.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+            tv.setLayoutParams(new FrameLayout.LayoutParams((int) dp(c, 120), (int) dp(c, 44)));
+            tv.setVisibility(View.GONE);
+            area.addView(tv);
+            popups[slot] = tv;
+            popupBig[slot] = !big;   // บังคับให้ตั้งขนาดตัวอักษรครั้งแรก
+            popupHide[slot] = new HideRunnable(tv);
+        }
+
+        tv.animate().cancel();
+        if (popupBig[slot] != big) {
+            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, big ? 26 : 20);
+            popupBig[slot] = big;
+        }
+        tv.setText(damage >= 0 && damage < DAMAGE_TEXT.length ? DAMAGE_TEXT[damage] : String.valueOf(-damage));
         tv.setTextColor(color);
-        tv.setShadowLayer(8f, 0f, 0f, Color.BLACK);
-        tv.setGravity(Gravity.CENTER);
-        tv.setLayoutParams(new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT));
+        tv.setX(cx - dp(c, 60));
+        tv.setY(cy - dp(c, 44) - dp(c, 20));
         tv.setScaleX(0.7f);
         tv.setScaleY(0.7f);
-        area.addView(tv);
+        tv.setAlpha(1f);
+        tv.setVisibility(View.VISIBLE);
 
-        tv.post(() -> {
-            tv.setX(cx - tv.getWidth() / 2f);
-            tv.setY(cy - tv.getHeight() - dp(c, 20));
-            tv.animate()
-                    .scaleX(1.15f).scaleY(1.15f)
-                    .translationYBy(-dp(c, 36))
-                    .alpha(0f)
-                    .setDuration(550)
-                    .withEndAction(() -> area.removeView(tv))
-                    .start();
-        });
+        tv.animate()
+                .scaleX(1.15f).scaleY(1.15f)
+                .translationYBy(-dp(c, 36))
+                .alpha(0f)
+                .setDuration(550)
+                .withEndAction(popupHide[slot]);
+    }
+
+    /** ซ่อน View เมื่อแอนิเมชันจบ (สร้างตอนสร้าง popup ไม่ใช่ทุกครั้งที่โดน) */
+    private static final class HideRunnable implements Runnable {
+        private final View v;
+
+        HideRunnable(View v) {
+            this.v = v;
+        }
+
+        @Override
+        public void run() {
+            v.setVisibility(View.GONE);
+        }
     }
 
     // ---------------------------------------------------------
-    // จอสั่นสั้นๆ แอมพลิจูดลดลงเรื่อยๆ
+    // จอสั่นสั้นๆ แอมพลิจูดลดลงเรื่อยๆ (animator ตัวเดียวใช้ซ้ำ)
     // ---------------------------------------------------------
     private static void shake(View area, float amplitudePx) {
-        ValueAnimator anim = ValueAnimator.ofFloat(0f, 1f);
-        anim.setDuration(160);
-        anim.addUpdateListener(a -> {
-            float t = (float) a.getAnimatedValue();
-            float decay = 1f - t;
-            area.setTranslationX((float) Math.sin(t * Math.PI * 8) * amplitudePx * decay);
-            area.setTranslationY((float) Math.cos(t * Math.PI * 6) * amplitudePx * 0.5f * decay);
-        });
-        anim.addListener(new android.animation.AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(android.animation.Animator animation) {
-                area.setTranslationX(0f);
-                area.setTranslationY(0f);
-            }
+        if (shakeAnim == null) {
+            shakeAnim = ValueAnimator.ofFloat(0f, 1f);
+            shakeAnim.setDuration(160);
+            shakeAnim.addUpdateListener(a -> {
+                if (shakeTarget == null) return;
+                float t = (float) a.getAnimatedValue();
+                float decay = 1f - t;
+                shakeTarget.setTranslationX((float) Math.sin(t * Math.PI * 8) * shakeAmp * decay);
+                shakeTarget.setTranslationY((float) Math.cos(t * Math.PI * 6) * shakeAmp * 0.5f * decay);
+            });
+            shakeAnim.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    resetShake();
+                }
 
-            @Override
-            public void onAnimationCancel(android.animation.Animator animation) {
-                area.setTranslationX(0f);
-                area.setTranslationY(0f);
-            }
-        });
-        anim.start();
+                @Override
+                public void onAnimationCancel(Animator animation) {
+                    resetShake();
+                }
+            });
+        }
+        shakeAnim.cancel();   // ถ้ากำลังสั่นอยู่ เริ่มรอบใหม่ (ค่าสั่นรอบเก่าถูกรีเซ็ตก่อน)
+        shakeTarget = area;
+        shakeAmp = amplitudePx;
+        shakeAnim.start();
     }
 
+    private static void resetShake() {
+        if (shakeTarget != null) {
+            shakeTarget.setTranslationX(0f);
+            shakeTarget.setTranslationY(0f);
+        }
+    }
+
+    // ---------------------------------------------------------
+    // วงกระแทก: ขนาดคงที่พอดีรัศมีสูงสุด วาดที่กึ่งกลาง View
+    // ---------------------------------------------------------
     private static class BurstView extends View {
         private final Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint spike = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint core = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final float cx, cy, maxRadius;
+        private final ValueAnimator anim;
+        private final int half;
+        private float maxRadius;
         private float progress;
 
-        BurstView(Context c, float cx, float cy, float maxRadius, int glow, int spikeColor) {
+        BurstView(Context c, float maxPossibleRadius) {
             super(c);
-            this.cx = cx;
-            this.cy = cy;
-            this.maxRadius = maxRadius;
+            // รัศมีสูงสุดที่วาดถึง = maxRadius * 1.05 + ขอบเส้น/เงาเรืองแสง
+            half = (int) Math.ceil(maxPossibleRadius * 1.05f + 24f);
+            setLayoutParams(new FrameLayout.LayoutParams(half * 2, half * 2));
             ring.setStyle(Paint.Style.STROKE);
             ring.setColor(Color.WHITE);
-            ring.setShadowLayer(14f, 0f, 0f, glow);
             spike.setStyle(Paint.Style.STROKE);
             spike.setStrokeCap(Paint.Cap.ROUND);
-            spike.setColor(spikeColor);
             core.setColor(Color.WHITE);
-            setLayerType(LAYER_TYPE_SOFTWARE, null); // ให้ shadow ทำงาน
+            setLayerType(LAYER_TYPE_SOFTWARE, null); // ให้ shadow ทำงาน (View เล็กลงแล้ว จึงเบาลงมาก)
+            setVisibility(GONE);
+
+            anim = ValueAnimator.ofFloat(0f, 1f);
+            anim.setDuration(300);
+            anim.addUpdateListener(a -> {
+                progress = (float) a.getAnimatedValue();
+                invalidate();
+            });
+            anim.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    setVisibility(GONE);
+                }
+            });
         }
 
-        void setProgress(float p) {
-            progress = p;
-            invalidate();
+        void play(float cx, float cy, float maxRadius, int glow, int spikeColor) {
+            anim.cancel();   // ถ้ากำลังเล่นอยู่ เริ่มรอบใหม่ (onAnimationEnd ซ่อนไว้ก่อน แล้วเปิดใหม่ด้านล่าง)
+            this.maxRadius = maxRadius;
+            this.progress = 0f;
+            ring.setShadowLayer(14f, 0f, 0f, glow);
+            spike.setColor(spikeColor);
+            setX(cx - half);
+            setY(cy - half);
+            setVisibility(VISIBLE);
+            anim.start();
         }
 
         @Override
         protected void onDraw(@NonNull Canvas canvas) {
+            float cx = half, cy = half;
             float ease = 1f - (1f - progress) * (1f - progress);
             int alpha = (int) (255 * (1f - progress));
 
