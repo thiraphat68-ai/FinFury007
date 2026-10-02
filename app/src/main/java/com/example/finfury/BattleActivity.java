@@ -43,7 +43,7 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
     private float velX, velY, faceScale = -1f, tilt;
     private long lastFrameNs = 0;
     private boolean skillLock = false;
-    private static final float MAX_SPEED = 700f;
+    static final float MAX_SPEED = 700f;
     private boolean isFacingRight = true;
 
     private Hero playerHero;
@@ -142,6 +142,11 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
 
         if (joystickBase != null) {
             joystickBase.setOnTouchListener((v, event) -> {
+                // ปล่อยนิ้วต้องรีเซ็ตเสมอ แม้เกมหยุดอยู่ (เช่น quiz ขึ้น) ไม่งั้นปลาวิ่งค้างหลังกลับมาเล่น
+                if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
+                    resetJoystick();
+                    return true;
+                }
                 if (!isGameRunning || isGamePaused) return false;
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
@@ -165,15 +170,6 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
                         }
                         return true;
                     }
-                    case MotionEvent.ACTION_UP:
-                    case MotionEvent.ACTION_CANCEL:
-                        moveX = 0f;
-                        moveY = 0f;
-                        if (joystickKnob != null) {
-                            joystickKnob.setTranslationX(0f);
-                            joystickKnob.setTranslationY(0f);
-                        }
-                        return true;
                 }
                 return false;
             });
@@ -185,7 +181,7 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
 
         if (btnSkill1 != null) {
             btnSkill1.setOnClickListener(v -> {
-                if (isGamePaused || gameArea == null || playerContainer == null) return;
+                if (!canUseSkill()) return;
                 startCooldownUI(btnSkill1, "Skill 1");
                 animateButton(btnSkill1);
                 playerHero.useSkill1(this);
@@ -193,7 +189,7 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
         }
         if (btnSkill2 != null) {
             btnSkill2.setOnClickListener(v -> {
-                if (isGamePaused) return;
+                if (!canUseSkill()) return;
                 startCooldownUI(btnSkill2, "Skill 2");
                 animateButton(btnSkill2);
                 playerHero.useSkill2(this);
@@ -224,6 +220,20 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
                 startGameLoop();
             });
         }
+    }
+
+    private void resetJoystick() {
+        moveX = 0f;
+        moveY = 0f;
+        if (joystickKnob != null) {
+            joystickKnob.setTranslationX(0f);
+            joystickKnob.setTranslationY(0f);
+        }
+    }
+
+    /** สกิลใช้ได้เฉพาะตอนเกมเดินอยู่ ไม่หยุด/ตาย และไม่ได้กำลังปล่อย Ultimate (กันล็อกการเคลื่อนที่หลุด) */
+    private boolean canUseSkill() {
+        return isGameRunning && !isGamePaused && !ultimateRunning && gameArea != null && playerContainer != null;
     }
 
     private final Choreographer.FrameCallback frameCallback = new Choreographer.FrameCallback() {
@@ -309,6 +319,7 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
 
     private void spawn5SeaEnemies() {
         enemyList.clear();
+        SeaEnemy.resetAttackQueue();
         if (gameArea == null) return;
 
         float width = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1000f;
@@ -316,7 +327,7 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
 
         enemyList.add(new SeaEnemy(this, "ปูซ่า", "🦀", width * 0.70f, height * 0.15f));
         enemyList.add(new SeaEnemy(this, "แมงกะพรุน", "🪼", width * 0.85f, height * 0.35f));
-        enemyList.add(new SeaEnemy(this, "เต่าทะเล", "🐢", width * 0.75f, height * 0.55f));
+        enemyList.add(new SeaEnemy(this, "เต่าทะเล", "🐢", width * 0.95f, height * 0.55f));
         enemyList.add(new SeaEnemy(this, "หมึกยักษ์", "🦑", width * 0.90f, height * 0.75f));
         enemyList.add(new SeaEnemy(this, "ดาวทะเล", "⭐️", width * 0.65f, height * 0.85f));
     }
@@ -411,6 +422,7 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
                     @Override
                     public void onQuizShown() {
                         isGamePaused = true;
+                        resetJoystick();
                     }
 
                     @Override
@@ -423,8 +435,10 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
                             return;
                         }
                         // ฮีโร่อื่น: ตอบถูก -> ปล่อย Ultimate อัตโนมัติ (แบบเดิม)
+                        ultimateRunning = true;
                         new Handler(Looper.getMainLooper()).postDelayed(() -> {
                             isGamePaused = false;
+                            if (!isGameRunning || isFinishing()) return;
                             playerHero.executeUltimateSkill(BattleActivity.this);
                         }, 600);
                     }
@@ -486,6 +500,8 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
             case 5: heroDrawableId = R.drawable.hero_5; break;
         }
         if (imgPlayer != null) imgPlayer.setImageResource(heroDrawableId);
+        TextView txtPlayerName = findViewById(R.id.txtPlayerName);
+        if (txtPlayerName != null && playerHero != null) txtPlayerName.setText(playerHero.getName());
         if (imgProfile != null) imgProfile.setImageResource(heroDrawableId);
     }
 
@@ -500,6 +516,7 @@ public class BattleActivity extends AppCompatActivity implements BattleContext {
     protected void onDestroy() {
         super.onDestroy();
         isGameRunning = false;
+        SeaEnemy.resetAttackQueue();
 
         Choreographer.getInstance().removeFrameCallback(frameCallback);
 

@@ -21,6 +21,7 @@ public class MainActivity extends AppCompatActivity {
 
     // ตัวแปรเก็บตัวละครที่ถูกเลือก (0 = ยังไม่ได้เลือก, 1-5 คือตัวละคร)
     private int selectedHeroId = 0;
+    private int selectedStageId = 1; // ด่านที่เลือก ส่งไป BattleActivity เพื่อบันทึกการปลดล็อกด่านถัดไปให้ถูกด่าน
     private LinearLayout[] heroCards;
 
     // ตัวแปรสำหรับแสดงรายละเอียดตัวละครด้านล่าง
@@ -88,36 +89,9 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // ==========================================
-        // 🌀 3. จัดการปุ่มน้ำวน (หน้าเลือกด่าน)
-        // ==========================================
-        ImageButton btnStage1 = findViewById(R.id.btnStage1);
-        ImageButton btnStage2 = findViewById(R.id.btnStage2);
-        ImageButton btnStage3 = findViewById(R.id.btnStage3);
-        ImageButton btnStage4 = findViewById(R.id.btnStage4);
-
-        btnStage3.setEnabled(false);
-        btnStage4.setEnabled(false);
-
-        btnStage1.setOnClickListener(v -> {
-            layoutLevelSelect.setVisibility(View.GONE);
-            videoBackgroundLevel.pause();
-            layoutHeroSelect.setVisibility(View.VISIBLE);
-        });
-
-        btnStage2.setOnClickListener(v -> {
-            layoutLevelSelect.setVisibility(View.GONE);
-            videoBackgroundLevel.pause();
-            layoutHeroSelect.setVisibility(View.VISIBLE);
-        });
-
-        // ==========================================
         // ⚔️ 4. ระบบเลือกตัวละคร (Hero Highlight & Details)
         // ==========================================
         Button btnFight = findViewById(R.id.btnFight);
-
-        // ล็อคปุ่ม FIGHT ไว้ก่อน และจางปุ่มลง 50%
-        btnFight.setEnabled(false);
-        btnFight.setAlpha(0.5f);
 
         // ผูกตัวแปรการ์ดตัวละครทั้ง 5
         LinearLayout cardHero1 = findViewById(R.id.cardHero1);
@@ -134,11 +108,41 @@ public class MainActivity extends AppCompatActivity {
         txtSelectedSubject = findViewById(R.id.txtSelectedSubject);
         txtSelectedDesc = findViewById(R.id.txtSelectedDesc);
 
+        // ตั้งค่าให้เลือกตัวละครแรก (Swordfish) เป็นค่าเริ่มต้น
+        selectHero(1, btnFight);
+
         // ตั้งค่า Event การคลิกให้การ์ดแต่ละตัว
         for (int i = 0; i < heroCards.length; i++) {
             final int heroIndex = i + 1; // 1 = Swordfish, 2 = Pufferfish, ...
             heroCards[i].setOnClickListener(v -> selectHero(heroIndex, btnFight));
         }
+
+        // ==========================================
+        // 🌀 3. จัดการปุ่มน้ำวน (หน้าเลือกด่าน)
+        // ==========================================
+        ImageButton btnStage1 = findViewById(R.id.btnStage1);
+        ImageButton btnStage2 = findViewById(R.id.btnStage2);
+        ImageButton btnStage3 = findViewById(R.id.btnStage3);
+        ImageButton btnStage4 = findViewById(R.id.btnStage4);
+
+        btnStage3.setEnabled(false);
+        btnStage4.setEnabled(false);
+
+        btnStage1.setOnClickListener(v -> {
+            selectedStageId = 1;
+            layoutLevelSelect.setVisibility(View.GONE);
+            videoBackgroundLevel.pause();
+            layoutHeroSelect.setVisibility(View.VISIBLE);
+            selectHero(1, btnFight);
+        });
+
+        btnStage2.setOnClickListener(v -> {
+            selectedStageId = 2;
+            layoutLevelSelect.setVisibility(View.GONE);
+            videoBackgroundLevel.pause();
+            layoutHeroSelect.setVisibility(View.VISIBLE);
+            selectHero(1, btnFight);
+        });
 
         // ==========================================
         // 🥊 5. ปุ่ม FIGHT! (เมื่อพร้อมลุย)
@@ -148,6 +152,7 @@ public class MainActivity extends AppCompatActivity {
                 // เปิดหน้า BattleActivity พร้อมส่งหมายเลขปลาไปด้วย
                 Intent intent = new Intent(MainActivity.this, BattleActivity.class);
                 intent.putExtra("HERO_ID", selectedHeroId);
+                intent.putExtra("STAGE_ID", selectedStageId);
                 startActivity(intent);
             }
         });
