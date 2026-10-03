@@ -8,6 +8,20 @@
     android:background="#0A1420">
 
     <!-- ============================================== -->
+    <!-- Layer 0: ภาพพื้นหลังด่าน (Stage Background) -->
+    <!-- ============================================== -->
+    <ImageView
+        android:id="@+id/imgBattleBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:src="@drawable/bg_level_video"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- ============================================== -->
     <!-- Layer 1: พื้นที่เกมเพลย์ (ตัวละคร และ ศัตรู) -->
     <!-- ============================================== -->
     <FrameLayout
@@ -29,7 +43,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:textColor="#FFFFFF"
+                android:textColor="#2ECC71"
                 android:textSize="11sp" />
             <ImageView
                 android:id="@+id/imgPlayer"
@@ -145,6 +159,47 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/layoutStack" />
+
+    <!-- หลอดเลือดบอส (ด่าน 5) ตรงกลางบน ใต้ข้อความด่าน: KrakenBoss เป็นคนเปิดและอัปเดต -->
+    <LinearLayout
+        android:id="@+id/layoutBossBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="240dp"
+        android:layout_marginTop="2dp"
+        android:background="#66000000"
+        android:orientation="vertical"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="2dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/txtStageInfo">
+
+        <TextView
+            android:id="@+id/txtBossName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="#B388FF"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+
+        <ProgressBar
+            android:id="@+id/barBossHp"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="9dp"
+            android:progressTint="#AA00FF" />
+
+        <TextView
+            android:id="@+id/txtBossHp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="#FFFFFF"
+            android:textSize="9sp" />
+    </LinearLayout>
 
     <!-- ============================================== -->
     <!-- Layer 3: UI ด้านบนตรงกลาง (หลอด Stack) -->

@@ -32,7 +32,7 @@ public final class RangedAttacks {
     private static final float BOLT_THICKNESS = 26f;
 
     public static final float LINE_BAND_WIDTH = 60f;    // ความกว้างแถบเตือนของลำพลัง
-    public static final float INK_RANGE = 440f;         // ระยะไกลสุดของกรวยหมึก
+    public static final float INK_RANGE = 640f;        // ระยะไกลสุดของกรวยหมึก
     public static final float INK_HALF_ANGLE_DEG = 32f; // ครึ่งมุมของกรวย (กว้างรวม 64°)
 
     private static float[] playerCenter(BattleContext ctx) {
@@ -46,6 +46,21 @@ public final class RangedAttacks {
     // ---------------------------------------------------------
     public static void fireLine(BattleContext ctx, float x0, float y0, float dirX, float dirY,
                                 float speed, int damage) {
+        fireLine(ctx, x0, y0, dirX, dirY, speed, damage, null);
+    }
+
+    /** เหมือนกันแต่เมื่อโดนผู้เล่นจะเรียก onHit ด้วย (เช่น สโลว์ / สตัน) ส่ง null ได้ */
+    public static void fireLine(BattleContext ctx, float x0, float y0, float dirX, float dirY,
+                                float speed, int damage, Runnable onHit) {
+        fireLine(ctx, x0, y0, dirX, dirY, speed, damage, onHit, 0f, 1f);
+    }
+
+    /**
+     * waveAmplitude > 0 = ลำพลังซิกแซกเป็นคลื่นไซน์: แกว่งข้างละ waveAmplitude px รอบละ waveLength px (0 = เส้นตรง)
+     */
+    public static void fireLine(BattleContext ctx, float x0, float y0, float dirX0, float dirY0,
+                                float speed, int damage, Runnable onHit,
+                                float waveAmplitude, float waveLength) {
         FrameLayout area = ctx.getGameArea();
         if (area == null) return;
 
@@ -56,7 +71,7 @@ public final class RangedAttacks {
         bg.setStroke(4, Color.WHITE);
         bolt.setBackground(bg);
         bolt.setLayoutParams(new FrameLayout.LayoutParams((int) BOLT_LENGTH, (int) BOLT_THICKNESS));
-        bolt.setRotation((float) Math.toDegrees(Math.atan2(dirY, dirX)));
+        bolt.setRotation((float) Math.toDegrees(Math.atan2(dirY0, dirX0)));
         area.addView(bolt);
 
         // บินให้พ้นขอบจอ (ใช้เส้นทแยงมุมของพื้นที่เล่นเป็นระยะสูงสุด)
@@ -65,6 +80,8 @@ public final class RangedAttacks {
 
         final boolean[] hit = {false};
         final float[] prevDist = {0f};
+        final float[] pos = {x0, y0};                 // ตำแหน่งในเฟรมก่อน ใช้เช็กชนตลอดเส้นทางที่เพิ่งบินผ่าน
+        final float[] dir = {dirX0, dirY0};
 
         ValueAnimator anim = ValueAnimator.ofFloat(0f, maxDist);
         anim.setDuration(durationMs);
@@ -75,18 +92,29 @@ public final class RangedAttacks {
                 return;
             }
             float d = (float) a.getAnimatedValue();
-            float bx = x0 + dirX * d;
-            float by = y0 + dirY * d;
+            float[] pc = playerCenter(ctx);
+
+            // วิถีคลื่นไซน์: บินตรงตามทิศที่ล็อกไว้ แล้วแกว่งซ้าย-ขวาตั้งฉากกับทิศนั้น (ซิกแซก)
+            float phase = (float) (2 * Math.PI * d / waveLength);
+            float offset = waveAmplitude * (float) Math.sin(phase);
+            float ax = pos[0], ay = pos[1];
+            float bx = x0 + dir[0] * d - dir[1] * offset;
+            float by = y0 + dir[1] * d + dir[0] * offset;
+            pos[0] = bx;
+            pos[1] = by;
+            if (waveAmplitude > 0f) {   // หันหัวลำพลังตามแนวเส้นโค้ง
+                float slope = waveAmplitude * (float) (2 * Math.PI / waveLength) * (float) Math.cos(phase);
+                bolt.setRotation((float) Math.toDegrees(Math.atan2(dir[1], dir[0]) + Math.atan(slope)));
+            }
             bolt.setX(bx - BOLT_LENGTH / 2f);
             bolt.setY(by - BOLT_THICKNESS / 2f);
 
-            float[] pc = playerCenter(ctx);
             if (!hit[0] && pc != null && !ctx.isGamePaused()) {
                 // ลำพลังเร็วมาก ก้าวต่อเฟรมยาว จึงเช็กทั้งช่วงที่บินผ่านในเฟรมนี้
-                float ax = x0 + dirX * prevDist[0], ay = y0 + dirY * prevDist[0];
                 if (distanceToSegment(pc[0], pc[1], ax, ay, bx, by) <= BOLT_HIT_RADIUS) {
                     hit[0] = true;
                     ctx.damagePlayer(damage);
+                    if (onHit != null) onHit.run();
                     HitEffects.playerHit(ctx, ctx.getPlayerContainer(), damage);
                     a.cancel();
                 }
@@ -106,6 +134,11 @@ public final class RangedAttacks {
     // หมึกยักษ์: พ่นหมึกเป็นกรวย ขยายทั้งระยะและมุมจากตัวหมึกออกไปทางผู้เล่น
     // ---------------------------------------------------------
     public static void inkCone(BattleContext ctx, float cx, float cy, float dirX, float dirY, int damage) {
+        inkCone(ctx, cx, cy, dirX, dirY, damage, null);
+    }
+
+    public static void inkCone(BattleContext ctx, float cx, float cy, float dirX, float dirY, int damage,
+                               Runnable onHit) {
         FrameLayout area = ctx.getGameArea();
         if (area == null) return;
 
@@ -134,6 +167,7 @@ public final class RangedAttacks {
             if (!hit[0] && pc != null && !ctx.isGamePaused() && inCone(pc[0], pc[1], cx, cy, dirDeg, radius, half)) {
                 hit[0] = true;
                 ctx.damagePlayer(damage);
+                if (onHit != null) onHit.run();
                 HitEffects.playerHit(ctx, ctx.getPlayerContainer(), damage);
             }
         });

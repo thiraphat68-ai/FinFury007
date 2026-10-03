@@ -42,7 +42,14 @@ public class BattleActivity extends BaseActivity implements BattleContext {
     private float velX, velY, faceScale = -1f, tilt;
     private long lastFrameNs = 0;
     private boolean skillLock = false;
-    private float speedMultiplier = 1f;      // สกิลที่เพิ่มความเร็ว (เช่น Blood Frenzy)
+    private float slowFactor = 1f;               // สโลว์จากบอส (คูณกับ speedMultiplier)
+    private float slowRemainingMs = 0f;
+    private float stunRemainingMs = 0f;          // สตันจากศัตรู: เคลื่อนที่ไม่ได้
+    private float stunImmuneMs = 0f;             // หายสตันแล้วกันสตันซ้ำชั่วครู่ ไม่งั้นโดนสตันต่อเนื่องจนขยับไม่ได้เลย
+    private static final float STUN_IMMUNE_AFTER_MS = 1500f;
+    private static final long HIT_INVULN_MS = 350;
+    private long lastDamageMs = 0;
+    private float speedMultiplier = 1f;     // สกิลที่เพิ่มความเร็ว (เช่น Blood Frenzy)
     private float cooldownMultiplier = 1f;   // สกิลที่ลดคูลดาวน์
     static final float MAX_SPEED = 700f;
     private boolean isFacingRight = true;
@@ -50,11 +57,22 @@ public class BattleActivity extends BaseActivity implements BattleContext {
     private Hero playerHero;
     private int currentHeroId = 1;
     private int currentStageId = 1;
+    private StageConfig stageConfig = StageConfig.forStage(1);
     private int playerHp = 100;
     private final int maxPlayerHp = 100;
     private int currentStack = 0;
     private static final int MAX_STACK = 10;
     private static final int MAX_STAGES = 5;
+
+    // ดีบัฟลดพลัง Ultimate (ด่าน 3-4): ถูกตีครบทุก 2 ครั้ง ได้พลังต่อฮิต 70% นาน 8 วินาที
+    private static final float ULT_DEBUFF_DURATION_MS = 5000f;
+    // ด่าน 3+: ถูกตีทุก 3 ครั้ง พลังสะสม ULT ลด 20% ของหลอด (2 จาก 10)
+    private static final int ENERGY_DRAIN_FROM_STAGE = 3;
+    private static final int ENERGY_DRAIN_EVERY_HITS = 3;
+    private static final int ENERGY_DRAIN_PERCENT = 20;
+    private int hitsTaken = 0;
+    private float ultDebuffRemainingMs = 0f;
+    private float stackFraction = 0f;
 
     private float playerAngle = 0f;
 
@@ -102,6 +120,24 @@ public class BattleActivity extends BaseActivity implements BattleContext {
 
     @Override
     public void setSpeedMultiplier(float multiplier) { speedMultiplier = multiplier; }
+
+    @Override
+    public void knockbackPlayer(float dirX, float dirY, float speed) {
+        velX += dirX * speed;   // updateFish ดึงความเร็วกลับเข้าหาเป้าหมายเอง แรงจึงค่อยๆ หมด (ระยะประมาณ 250 px)
+        velY += dirY * speed;
+    }
+
+    @Override
+    public void stunPlayer(long durationMs) {
+        if (stunImmuneMs > 0f) return;
+        stunRemainingMs = Math.max(stunRemainingMs, durationMs);
+    }
+
+    @Override
+    public void slowPlayer(float factor, long durationMs) {
+        slowFactor = factor;
+        slowRemainingMs = durationMs;
+    }
 
     @Override
     public void setCooldownMultiplier(float multiplier) { cooldownMultiplier = multiplier; }
@@ -217,6 +253,18 @@ public class BattleActivity extends BaseActivity implements BattleContext {
     }
 
     @Override
+    public void onEnemyLifeLost() {
+        // บอสเข้าเฟส 2: ลูกน้องที่เหลือหายไปหมด เหลือแค่บอสกับผู้เล่น
+        if (stageConfig.boss) {
+            for (int i = 0; i < enemyList.size(); i++) {
+                SeaEnemy e = enemyList.get(i);
+                if (e instanceof BossMinion) e.removeSilently();
+            }
+        }
+        updateStageInfo();
+    }
+
+    @Override
     public void onUltimateFinished() {
         ultimateRunning = false;
         currentStack = 0;
@@ -235,8 +283,10 @@ public class BattleActivity extends BaseActivity implements BattleContext {
 
         currentHeroId = getIntent().getIntExtra("HERO_ID", 1);
         currentStageId = getIntent().getIntExtra("STAGE_ID", 1);
+        stageConfig = StageConfig.forStage(currentStageId);
         playerHero = HeroFactory.createHero(currentHeroId);
         setupQuiz();
+        setupStageBackground(currentStageId);
 
         gameArea = findViewById(R.id.gameArea);
         playerContainer = findViewById(R.id.playerContainer);
@@ -354,7 +404,7 @@ public class BattleActivity extends BaseActivity implements BattleContext {
 
         if (gameArea != null) {
             gameArea.post(() -> {
-                spawn5SeaEnemies();
+                spawnStageEnemies();
                 updateStageInfo();
                 startGameLoop();
                 showTutorialIfFirstTime();
@@ -388,6 +438,13 @@ public class BattleActivity extends BaseActivity implements BattleContext {
                 updateFish(dt);
                 updatePlayerOverlays();
                 tickUltimateTimer(dt);
+                if (ultDebuffRemainingMs > 0f) {
+                    ultDebuffRemainingMs -= dt * 1000f;
+                    if (ultDebuffRemainingMs <= 0f) {
+                        ultDebuffRemainingMs = 0f;
+                        updateStageInfo();
+                    }
+                }
 
                 if (playerContainer != null) {
                     // getX()/getY() รวม translation ไว้แล้ว ห้ามบวก getTranslationX/Y ซ้ำ
@@ -412,8 +469,20 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         if (playerContainer == null || imgPlayer == null) return;
 
         float k = 1f - (float) Math.exp(-8f * dt);
-        float targetVx = skillLock ? 0f : moveX * MAX_SPEED * speedMultiplier;
-        float targetVy = skillLock ? 0f : moveY * MAX_SPEED * speedMultiplier;
+        if (slowRemainingMs > 0f) {
+            slowRemainingMs -= dt * 1000f;
+            if (slowRemainingMs <= 0f) { slowRemainingMs = 0f; slowFactor = 1f; }
+        }
+        boolean stunned = stunRemainingMs > 0f;
+        if (stunned) {
+            stunRemainingMs = Math.max(0f, stunRemainingMs - dt * 1000f);
+            if (stunRemainingMs == 0f) stunImmuneMs = STUN_IMMUNE_AFTER_MS;
+        } else if (stunImmuneMs > 0f) {
+            stunImmuneMs = Math.max(0f, stunImmuneMs - dt * 1000f);
+        }
+        float effSpeed = speedMultiplier * slowFactor;
+        float targetVx = (skillLock || stunned) ? 0f : moveX * MAX_SPEED * effSpeed;
+        float targetVy = (skillLock || stunned) ? 0f : moveY * MAX_SPEED * effSpeed;
         velX += (targetVx - velX) * k;
         velY += (targetVy - velY) * k;
 
@@ -460,19 +529,43 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         imgPlayer.setTranslationY((float) Math.sin(swimTime) * 4f * (1f - speed));
     }
 
-    private void spawn5SeaEnemies() {
+    /** ลูกน้อง 5 ตัวแบบด่าน 3 อยู่ฝั่งซ้ายของบอส (เฟส 1 เท่านั้น เฟส 2 ถูกเก็บออกหมด) */
+    private void spawnBossMinions() {
+        if (gameArea == null) return;
+        SeaEnemy.setDualAttack(true);
+        float width = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1000f;
+        float height = gameArea.getHeight() > 0 ? gameArea.getHeight() : 500f;
+        String[] names = {"Crab", "Jellyfish", "Turtle", "Kraken", "Starfish"};
+        String[] emojis = {"🦀", "🪼", "🐢", "🦑", "⭐️"};
+        float[] xs = {0.10f, 0.25f, 0.05f, 0.22f, 0.12f};
+        float[] ys = {0.15f, 0.35f, 0.55f, 0.75f, 0.85f};
+        for (int i = 0; i < names.length; i++) {
+            enemyList.add(new BossMinion(this, names[i], emojis[i], width * xs[i], height * ys[i]));
+        }
+    }
+
+    private void spawnStageEnemies() {
         enemyList.clear();
         SeaEnemy.resetAttackQueue();
         if (gameArea == null) return;
+        SeaEnemy.setDualAttack(stageConfig.dualAttack);
 
         float width = gameArea.getWidth() > 0 ? gameArea.getWidth() : 1000f;
         float height = gameArea.getHeight() > 0 ? gameArea.getHeight() : 500f;
 
-        enemyList.add(new SeaEnemy(this, "ปูซ่า", "🦀", width * 0.70f, height * 0.15f));
-        enemyList.add(new SeaEnemy(this, "แมงกะพรุน", "🪼", width * 0.85f, height * 0.35f));
-        enemyList.add(new SeaEnemy(this, "เต่าทะเล", "🐢", width * 0.95f, height * 0.55f));
-        enemyList.add(new SeaEnemy(this, "หมึกยักษ์", "🦑", width * 0.90f, height * 0.75f));
-        enemyList.add(new SeaEnemy(this, "ดาวทะเล", "⭐️", width * 0.65f, height * 0.85f));
+        if (stageConfig.boss) {
+            enemyList.add(new KrakenBoss(this, width * 0.6f, height * 0.2f, stageConfig));
+            spawnBossMinions();
+            return;
+        }
+
+        enemyList.add(new SeaEnemy(this, "Crab", "🦀", width * 0.70f, height * 0.15f, stageConfig));
+        enemyList.add(new SeaEnemy(this, "Jellyfish", "🪼", width * 0.85f, height * 0.35f, stageConfig));
+        enemyList.add(new SeaEnemy(this, "Turtle", "🐢", width * 0.95f, height * 0.55f, stageConfig));
+        if (stageConfig.includeSquid) {
+            enemyList.add(new SeaEnemy(this, "Kraken", "🦑", width * 0.90f, height * 0.75f, stageConfig));
+        }
+        enemyList.add(new SeaEnemy(this, "Starfish", "⭐️", width * 0.65f, height * 0.85f, stageConfig));
     }
 
     private void startCooldownUI(Button btn, String originalText) {
@@ -497,7 +590,12 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         if (!isGameRunning || !anyEnemyAlive()) return;
 
         if (currentStack < MAX_STACK) {
-            currentStack++;
+            // ติดดีบัฟ: ได้พลังต่อฮิตน้อยลง (เช่น 0.7) เศษสะสมไว้จนครบ 1 ถึงขึ้นสแตก
+            stackFraction += ultDebuffRemainingMs > 0f ? stageConfig.ultGainFactor : 1f;
+            int gained = (int) stackFraction;
+            if (gained <= 0) return;
+            stackFraction -= gained;
+            currentStack = Math.min(MAX_STACK, currentStack + gained);
             updateStackUI();
             if (currentStack >= MAX_STACK) quizManager.show();
         }
@@ -513,10 +611,34 @@ public class BattleActivity extends BaseActivity implements BattleContext {
     @Override
     public void damagePlayer(int damage) {
         if (!isGameRunning) return;
+        // ช่วงอมตะสั้นๆ หลังโดน: กระสุนรัว/เส้นคลื่นที่ซ้อนกันในเฟรมเดียวไม่รุมโดนซ้ำจนหลอดเลือดหายวับ
+        long nowMs = System.currentTimeMillis();
+        if (nowMs - lastDamageMs < HIT_INVULN_MS) return;
+        lastDamageMs = nowMs;
 
         playerHp = Math.max(0, playerHp - damage);
         if (barPlayerHp != null) barPlayerHp.setProgress(playerHp);
         updateHpUI();
+
+        // ถูกตีครบทุก N ครั้ง ศัตรูทำให้พลัง Ultimate ที่ได้ลดลงชั่วคราว
+        hitsTaken++;
+        if (stageConfig.ultDebuffEveryHits > 0 && playerHp > 0
+                && hitsTaken % stageConfig.ultDebuffEveryHits == 0) {
+            boolean wasActive = ultDebuffRemainingMs > 0f;
+            ultDebuffRemainingMs = ULT_DEBUFF_DURATION_MS;
+            if (!wasActive) updateStageInfo();
+        }
+
+        // ด่าน 3 เป็นต้นไป: ถูกตีครบทุก 3 ครั้ง พลังสะสมสู่ ULT ลด 20% ของหลอด
+        // (ไม่แตะตอนโจทย์ขึ้นอยู่ ULT พร้อมกด หรือกำลังปล่อย ULT)
+        if (currentStageId >= ENERGY_DRAIN_FROM_STAGE && playerHp > 0
+                && hitsTaken % ENERGY_DRAIN_EVERY_HITS == 0
+                && !ultimateReady && !ultimateRunning && !quizManager.isShowing()) {
+            int drain = Math.round(MAX_STACK * ENERGY_DRAIN_PERCENT / 100f);
+            currentStack = Math.max(0, currentStack - drain);
+            stackFraction = 0f;
+            updateStackUI();
+        }
         // HP หมด = เสียงแพ้แทนเสียงโดนตี
         SoundManager.play(playerHp <= 0 ? SoundManager.Sfx.LOSE : SoundManager.Sfx.PLAYER_HURT);
 
@@ -534,8 +656,21 @@ public class BattleActivity extends BaseActivity implements BattleContext {
     }
 
     // =========================================================
-    // HUD: ตัวเลข HP / ด่านและศัตรูที่เหลือ
+    // HUD: ภาพพื้นหลังด่าน / ตัวเลข HP / ด่านและศัตรูที่เหลือ
     // =========================================================
+    private void setupStageBackground(int stageId) {
+        ImageView imgBattleBackground = findViewById(R.id.imgBattleBackground);
+        if (imgBattleBackground == null) return;
+
+        // ค้นหา Drawable ID ตามชื่อไฟล์ เช่น bg_stage_1, bg_stage_2 หรือใช้ภาพ default หากยังไม่มี
+        int bgResId = getResources().getIdentifier("bg_stage_" + stageId, "drawable", getPackageName());
+        if (bgResId != 0) {
+            imgBattleBackground.setImageResource(bgResId);
+        } else {
+            imgBattleBackground.setImageResource(R.drawable.bg_level_video);
+        }
+    }
+
     private void updateHpUI() {
         TextView txtHpValue = findViewById(R.id.txtHpValue);
         if (txtHpValue != null) {
@@ -547,11 +682,21 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         TextView txtStageInfo = findViewById(R.id.txtStageInfo);
         if (txtStageInfo == null) return;
         int alive = 0;
+        int bossLives = 0;
         for (int eIdx = 0; eIdx < enemyList.size(); eIdx++) {
             SeaEnemy e = enemyList.get(eIdx);
-            if (e.isAlive) alive++;
+            if (e.isAlive) {
+                alive++;
+                if (e instanceof KrakenBoss) bossLives = e.livesLeft();
+            }
         }
-        txtStageInfo.setText(String.format(Locale.US, "ด่าน %d  |  ศัตรูเหลือ %d ตัว", currentStageId, alive));
+        String info = bossLives > 0
+                ? String.format(Locale.US, "ด่าน %d  |  บอสเหลือ %d ชีวิต", currentStageId, bossLives)
+                : String.format(Locale.US, "ด่าน %d  |  ศัตรูเหลือ %d ตัว", currentStageId, alive);
+        if (ultDebuffRemainingMs > 0f) {
+            info += String.format(Locale.US, "  |  ⚠ ULT -%d%%", Math.round((1f - stageConfig.ultGainFactor) * 100f));
+        }
+        txtStageInfo.setText(info);
     }
 
     // =========================================================
@@ -733,6 +878,7 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         boolean allDead = true;
         for (int enemyIdx = 0; enemyIdx < enemyList.size(); enemyIdx++) {
             SeaEnemy enemy = enemyList.get(enemyIdx);
+            if (stageConfig.boss && !(enemy instanceof KrakenBoss)) continue;   // ด่านบอส: ชนะเมื่อบอสตาย ลูกน้องไม่ต้องกำจัดให้หมด
             if (enemy.isAlive) {
                 allDead = false;
                 break;

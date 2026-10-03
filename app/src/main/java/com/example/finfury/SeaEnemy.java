@@ -5,6 +5,7 @@ import android.graphics.Color;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -13,13 +14,43 @@ import java.util.List;
 import java.util.Locale;
 
 public class SeaEnemy {
+    // สิทธิ์โจมตี: ปกติมี 1 ช่อง (ทีละตัว) ด่านที่เปิด Dual Attacker มี 2 ช่อง
     private static int activeAttackerId = 0;
+    private static int activeAttackerId2 = 0;
+    private static boolean dualAttackEnabled = false;
     private static long lastAttackEndTime = 0;
 
     /** เรียกตอนเริ่มด่านใหม่ ตัวแปร static ค้างข้ามเกมได้ ถ้าเกมก่อนจบตอนศัตรูถือสิทธิ์โจมตีอยู่ ศัตรูชุดใหม่จะไม่ได้โจมตีเลย */
     public static void resetAttackQueue() {
         activeAttackerId = 0;
+        activeAttackerId2 = 0;
+        dualAttackEnabled = false;
         lastAttackEndTime = 0;
+    }
+
+    /** เปิด/ปิดโหมดโจมตีพร้อมกัน 2 ตัว (เรียกหลัง resetAttackQueue ตอนเริ่มด่าน) */
+    public static void setDualAttack(boolean enabled) { dualAttackEnabled = enabled; }
+
+    private boolean holdsAttackSlot() {
+        return activeAttackerId == enemyId || activeAttackerId2 == enemyId;
+    }
+
+    private boolean attackSlotAvailable() {
+        return holdsAttackSlot() || activeAttackerId == 0 || (dualAttackEnabled && activeAttackerId2 == 0);
+    }
+
+    private void claimAttackSlot() {
+        if (holdsAttackSlot()) return;
+        if (activeAttackerId == 0) activeAttackerId = enemyId;
+        else activeAttackerId2 = enemyId;
+    }
+
+    /** คืนสิทธิ์โจมตี (ถ้าถืออยู่) พร้อมเริ่มนับช่วงพัก */
+    protected void releaseAttackSlot(long now) {
+        if (activeAttackerId == enemyId) activeAttackerId = 0;
+        else if (activeAttackerId2 == enemyId) activeAttackerId2 = 0;
+        else return;
+        lastAttackEndTime = now;
     }
 
     /** DASH = พุ่งทะลุเข้าหา, LINE_SHOT = ยิงลำพลังเส้นตรง (แมงกะพรุน), INK_CONE = พ่นหมึกเป็นกรวย (หมึกยักษ์) */
@@ -31,8 +62,9 @@ public class SeaEnemy {
         ATTACKING
     }
 
-    private final BattleContext ctx;
+    protected final BattleContext ctx;
     private final int enemyId;
+    private final StageConfig cfg;
 
     public final String name;
     public final String emoji;
@@ -73,8 +105,6 @@ public class SeaEnemy {
 
     private long stunUntilMs = 0;
 
-    public boolean isStunned() { return System.currentTimeMillis() < stunUntilMs; }
-
     /** สตันนานตามเวลา: ขยับ/โจมตีไม่ได้ (ต่างจาก swallowed ตรงที่โดนดาเมจ/ผลักถอยได้ตามปกติ) */
     public void stun(long durationMs) {
         stunUntilMs = Math.max(stunUntilMs, System.currentTimeMillis() + durationMs);
@@ -85,17 +115,15 @@ public class SeaEnemy {
     /** ยกเลิกการโจมตีที่ค้างอยู่ ไม่งั้นตัวอื่นรอคิวโจมตีไม่ได้ */
     private void cancelAttack() {
         clearAttackPath();
-        if (activeAttackerId == enemyId) {
-            activeAttackerId = 0;
-            lastAttackEndTime = System.currentTimeMillis();
-        }
+        releaseAttackSlot(System.currentTimeMillis());
         timeInOrbitMs = 0;
         currentState = State.ORBIT_AND_WAIT;
     }
 
-    private TextView imgAvatar;
-    private ProgressBar barHp;
-    private TextView txtHp;
+    protected View imgAvatar;
+    protected ProgressBar barHp;
+    protected TextView txtHp;
+    protected TextView txtName;
 
     private State currentState = State.ORBIT_AND_WAIT;
     private long lastStateUpdateTime = System.currentTimeMillis();
@@ -117,31 +145,167 @@ public class SeaEnemy {
     private float aimDirY = 0f;
 
     private static final float BASE_SPEED = BattleActivity.MAX_SPEED * 0.75f;
-    private static final float ORBIT_SPEED_FACTOR = 0.20f;                      // ความเร็วตอนวนรอบ = 20% ของความเร็วเดิน
-    private static final float DASH_SPEED = BattleActivity.MAX_SPEED * 10f;     // ความเร็วพุ่ง = 1000% ของผู้เล่น
-    private static final float ORBIT_LOOKAHEAD_RAD = 0.4f;
+    private static final float ORBIT_SPEED_FACTOR = 0.60f;                      // ความเร็วตอนล้อมผู้เล่น = 60% ของความเร็วเดิน (ต้องเร็วพอตามช่องที่หมุน+ซิกแซกทัน)
+    private static final float BASE_DASH_SPEED = BattleActivity.MAX_SPEED * 10f; // ความเร็วพุ่ง = 1000% ของผู้เล่น
+    private static final float ORBIT_ROTATE_RAD_PER_S = 0.45f;   // วงล้อมหมุนรอบผู้เล่น
+    private static final float ZIGZAG_AMPLITUDE = 90f;           // แกว่งเข้า-ออกจากรัศมีกลางข้างละกี่ px
+    private static final float ZIGZAG_FREQ = 3.2f;               // ความถี่ซิกแซก (rad/s ของคลื่น)
     private static final float SEPARATION_SPEED = 400f;
     private static final float ATTACK_TRIGGER_RANGE = 45f;
-    private static final float ENEMY_SPACING = 140f;
+    private static final float ENEMY_SPACING = 210f;   // เว้นระยะระหว่างศัตรูกว้างขึ้น 1.5 เท่า (เดิม 140)
     private static final float PASS_THROUGH_DISTANCE = 160f; // ระยะพุ่งทะลุผ่านตัวผู้เล่นออกไปด้านหลัง
-    private static final long ATTACK_INTERVAL_MS = 3000;     // ศัตรูแต่ละตัวโจมตีทุก 3 วินาที (นับรวมช่วงเตือน)
+    private static final long DEFAULT_ATTACK_INTERVAL_MS = 3000; // ศัตรูแต่ละตัวโจมตีทุก 3 วินาที (นับรวมช่วงเตือน) ปรับตามด่านได้
+    private long attackIntervalMs = DEFAULT_ATTACK_INTERVAL_MS;
+    private float dashSpeed = BASE_DASH_SPEED;
     private static final float LINE_SHOT_SPEED_FACTOR = 3f;  // ลำพลังแมงกะพรุนเร็ว 300% ของความเร็วเดินของมัน
-    private static final long WINDUP_MS = 800;               // ช่วงหยุดเล็งและโชว์เส้นทางก่อนพุ่ง
+    private static final float RECOIL_SPEED = 1400f;   // ถอยหลังยิง: ระยะรวมประมาณ RECOIL_SPEED / RECOIL_DECAY = 200 px
+    private static final float RECOIL_DECAY = 7f;
+    private float recoilVx = 0f, recoilVy = 0f;
+
+    private static final float WAVE_AMPLITUDE_PX = 110f;   // กระสุนแมงกะพรุนซิกแซกเป็นคลื่น: แกว่งข้างละ 110 px
+    private static final float WAVE_LENGTH_PX = 480f;      // หนึ่งรอบคลื่นยาว 480 px
+    private static final float SHOCKWAVE_SPEED = 5000f;   // แรงผลัก: ไกลประมาณ 600 px (จอจำกัดไว้ที่ขอบ)
+    private static final int BARRAGE_SHOTS = 15;
+    private static final long BARRAGE_GAP_MS = 120;   // เดิม 80 ms ห่างขึ้น 1.5 เท่า
+    private static final long JELLY_STUN_MS = 500;
+    private static final float TRAVEL_CUT_PER_STAGE_S = 0.2f;
+    private static final float MIN_TRAVEL_S = 0.25f;
+    private static final long WINDUP_MS = 500;              // ช่วงหยุดเล็งและโชว์เส้นทางก่อนพุ่ง
 
     private float animTime = (float) (Math.random() * 10);
-    private final float orbitDir = Math.random() < 0.5 ? 1f : -1f;
+    private final float zigPhase = (float) (Math.random() * Math.PI * 2);   // แต่ละตัวซิกแซกไม่พร้อมกัน
+    private final float slotOffset = (float) (Math.random() * 0.4 - 0.2);   // สุ่มมุมเล็กน้อย ไม่ให้ดูเป็นแถวเป๊ะ
 
     public SeaEnemy(BattleContext ctx, String name, String emoji, float posX, float posY) {
+        this(ctx, name, emoji, posX, posY, StageConfig.forStage(1));
+    }
+
+    public SeaEnemy(BattleContext ctx, String name, String emoji, float posX, float posY, StageConfig cfg) {
         this.ctx = ctx;
         this.name = name;
         this.emoji = emoji;
+        this.cfg = cfg;
         this.enemyId = System.identityHashCode(this);
 
         configureEnemyStats();
+        applyStageModifiers();
         createView(posX, posY);
     }
 
-    private void configureEnemyStats() {
+    /** เต่า (ด่าน 2-4): โดนแล้วสโลว์ 50% นาน 2 วิ / ดาวทะเล (ด่าน 2-4): โดนแล้วผลักผู้เล่นไปตามทิศพุ่ง */
+    protected void onPlayerHit(float dirX, float dirY) {
+        if ("Jellyfish".equals(name)) {   // ทุกด่าน: กระสุนแมงกะพรุนทำให้สตัน 0.5 วินาที
+            ctx.stunPlayer(JELLY_STUN_MS);
+            return;
+        }
+        if (cfg.stage < 2 || cfg.stage > 4) return;
+        if ("Turtle".equals(name)) {
+            ctx.slowPlayer(0.5f, 2000);
+        } else if ("Starfish".equals(name)) {
+            ctx.knockbackPlayer(dirX, dirY, 2000f);
+        }
+    }
+
+    /** เอาศัตรูออกจากฉากเงียบๆ (ไม่นับว่าถูกกำจัด: ไม่มีคลื่นกระแทก ไม่ลดเลือดบอส ไม่เช็กชนะ) */
+    public void removeSilently() {
+        if (!isAlive) return;
+        isAlive = false;
+        clearAttackPath();
+        if (currentState != State.ORBIT_AND_WAIT) releaseAttackSlot(System.currentTimeMillis());
+        if (containerView != null) {
+            containerView.animate().alpha(0f).scaleX(0f).scaleY(0f).setDuration(300)
+                    .withEndAction(() -> {
+                        if (containerView != null) containerView.setVisibility(View.GONE);
+                    }).start();
+        }
+    }
+
+    /** มุมช่องของตัวนี้บนวงล้อมผู้เล่น: แบ่งวง 360° เท่าๆ กันตามจำนวนศัตรูที่ยังมีชีวิต (ไม่นับบอส) */
+    private double slotAngle() {
+        int idx = 0, n = 0;
+        List<SeaEnemy> all = ctx.getEnemies();
+        for (int i = 0; i < all.size(); i++) {
+            SeaEnemy e = all.get(i);
+            if (e == this) idx = n;
+            if (e.isAlive && !(e instanceof KrakenBoss) && (e == this || !e.swallowed)) n++;
+        }
+        return Math.PI * 2 * idx / Math.max(1, n) + slotOffset;
+    }
+
+    /** คลื่นสามเหลี่ยม -1..1 (เส้นตรงสลับขึ้น-ลง = ซิกแซกคม ต่างจากไซน์ที่โค้งนุ่ม) */
+    private static float triangleWave(float x) {
+        return (float) (2.0 / Math.PI * Math.asin(Math.sin(x)));
+    }
+
+    /** ตายแล้วปล่อยคลื่นกระแทก: ผลักผู้เล่นออกจากจุดที่ตายไปทางขอบจอ ไม่มีดาเมจ */
+    private void deathShockwave() {
+        View pv = ctx.getPlayerContainer();
+        FrameLayout fx = ctx.getGameArea();
+        if (pv == null || fx == null || !ctx.isGameRunning()) return;
+
+        float ecx = containerView.getX() + containerView.getWidth() / 2f;
+        float ecy = containerView.getY() + containerView.getHeight() / 2f;
+        float dx = pv.getX() + pv.getWidth() / 2f - ecx;
+        float dy = pv.getY() + pv.getHeight() / 2f - ecy;
+        float len = (float) Math.hypot(dx, dy);
+        if (len < 1f) {   // ทับกันพอดี: สุ่มทิศ
+            double a = Math.random() * Math.PI * 2;
+            dx = (float) Math.cos(a);
+            dy = (float) Math.sin(a);
+            len = 1f;
+        }
+        ctx.knockbackPlayer(dx / len, dy / len, SHOCKWAVE_SPEED);
+
+        // วงคลื่นขยายออกจากจุดที่ตาย
+        View ring = new View(ctx.getContext());
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        bg.setColor(Color.TRANSPARENT);
+        bg.setStroke(10, Color.parseColor("#B3FFFFFF"));
+        ring.setBackground(bg);
+        final int size = 200;
+        ring.setLayoutParams(new FrameLayout.LayoutParams(size, size));
+        ring.setX(ecx - size / 2f);
+        ring.setY(ecy - size / 2f);
+        fx.addView(ring);
+        ring.animate().scaleX(6f).scaleY(6f).alpha(0f).setDuration(450)
+                .withEndAction(() -> fx.removeView(ring)).start();
+    }
+
+    /** ตัวคูณดาเมจ/เลือดเพิ่มเติมจากค่าของด่าน (ลูกน้องบอสใช้) */
+    protected float damageScale() { return 1f; }
+
+    protected float hpScale() { return 1f; }
+
+    /** เรียกตอนศัตรูตาย ก่อนแจ้ง ctx (ลูกน้องบอสใช้ลดเลือดบอส) */
+    protected void onDefeated() {}
+
+    /** ปรับสเตตัสพื้นฐานตามความยากของด่าน (เลือด / ความเร็ว / คูลดาวน์โจมตี / ความเร็วพุ่ง) */
+    private void applyStageModifiers() {
+        maxHp = Math.max(1, Math.round(maxHp * cfg.hpMul * hpScale()));
+        hp = maxHp;
+        speedMultiplier *= cfg.speedMul;
+        attackIntervalMs = cfg.attackIntervalMs;
+        dashSpeed = BASE_DASH_SPEED * cfg.dashSpeedMul;
+        attackDamage = Math.max(1, Math.round(attackDamage * cfg.damageMul * damageScale()));
+    }
+
+    /** ขนาดภาพศัตรูเทียบปกติ (บอสใหญ่ 4 เท่า) */
+    protected float visualScale() { return 1f; }
+
+    /** Resource ID ของรูปภาพศัตรู (0 = ใช้ Emoji แทน) */
+    protected int getDrawableResId() { return 0; }
+
+    /** ศัตรูโดนผลักถอยตอนโดนสกิลได้ไหม */
+    protected boolean allowKnockback() { return true; }
+
+    /** HP หมดแล้ว มีชีวิตเหลือให้ฟื้นไหม (true = ไม่ตาย) บอสหลายชีวิต override */
+    protected boolean reviveOnDepleted() { return false; }
+
+    /** จำนวนชีวิตที่เหลือ (ศัตรูปกติมี 1) */
+    public int livesLeft() { return 1; }
+
+    protected void configureEnemyStats() {
         if (emoji.contains("🦀") || name.contains("ปู")) {
             // ปูซ่า: เลือดเยอะ ช้า
             maxHp = 14;
@@ -155,8 +319,8 @@ public class SeaEnemy {
             maxHp = 11;
             hp = 11;
             speedMultiplier = 1.25f;
-            holdMinDistance = 280f;
-            holdMaxDistance = 380f;  // ต้องน้อยกว่าระยะกรวยหมึก (RangedAttacks.INK_RANGE) เพื่อให้กรวยถึงตัวผู้เล่น
+            holdMinDistance = 420f;
+            holdMaxDistance = 500f;  // ต้องน้อยกว่าระยะกรวยหมึก x0.9 (RangedAttacks.INK_RANGE) เพื่อให้กรวยถึงตัวผู้เล่น
             attackDamage = 5;
             attackType = AttackType.INK_CONE;
         } else if (emoji.contains("🐢") || name.contains("เต่า")) {
@@ -167,13 +331,13 @@ public class SeaEnemy {
             holdMinDistance = 240f;
             holdMaxDistance = 340f;
             attackDamage = 5;
-        } else if (emoji.contains("🪼") || name.contains("กะพรุน")) {
-            // แมงกะพรุน: ความเร็วปกติ ลอยวนระยะกว้าง
+        } else if (emoji.contains("🪼") || name.toLowerCase(Locale.US).contains("jellyfish") || name.contains("กะพรุน")) {
+            // แมงกะพรุน: ความเร็วปกติ รักษาระยะห่าง 240px
             maxHp = 10;
             hp = 10;
             speedMultiplier = 1.0f;
-            holdMinDistance = 320f;
-            holdMaxDistance = 420f;
+            holdMinDistance = 180f;   // เข้าหาผู้เล่นใกล้กว่าเดิม (เดิม 320-360)
+            holdMaxDistance = 220f;
             attackDamage = 4;
             attackType = AttackType.LINE_SHOT;
         } else {
@@ -196,30 +360,43 @@ public class SeaEnemy {
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setGravity(Gravity.CENTER);
 
-        TextView txtName = new TextView(ctx.getContext());
+        final float vs = visualScale();
+        final float uiScale = Math.min(vs, 2f);   // ชื่อ/หลอดเลือดโตสูงสุด 2 เท่า ตัวภาพโตเต็ม vs
+        txtName = new TextView(ctx.getContext());
         txtName.setText(name);
-        txtName.setTextColor(Color.WHITE);
-        txtName.setTextSize(11f);
+        txtName.setTextColor(0xFFFF5252);   // ฝั่งศัตรู = สีแดง
+        txtName.setTextSize(11f * uiScale);
         txtName.setGravity(Gravity.CENTER);
 
         barHp = new ProgressBar(ctx.getContext(), null, android.R.attr.progressBarStyleHorizontal);
         barHp.setMax(maxHp);
         barHp.setProgress(hp);
         barHp.setProgressTintList(ColorStateList.valueOf(Color.RED));
-        LinearLayout.LayoutParams barParams = new LinearLayout.LayoutParams(90, 14);
+        LinearLayout.LayoutParams barParams = new LinearLayout.LayoutParams((int) (90 * vs), (int) (14 * uiScale));
         barParams.bottomMargin = 2;
         barHp.setLayoutParams(barParams);
 
         txtHp = new TextView(ctx.getContext());
         txtHp.setText(String.format(Locale.US, "%d/%d", hp, maxHp));
         txtHp.setTextColor(Color.YELLOW);
-        txtHp.setTextSize(9f);
+        txtHp.setTextSize(9f * uiScale);
         txtHp.setGravity(Gravity.CENTER);
 
-        imgAvatar = new TextView(ctx.getContext());
-        imgAvatar.setText(emoji);
-        imgAvatar.setTextSize(36f);
-        imgAvatar.setGravity(Gravity.CENTER);
+        int drawableRes = getDrawableResId();
+        if (drawableRes != 0) {
+            ImageView imgView = new ImageView(ctx.getContext());
+            imgView.setImageResource(drawableRes);
+            imgView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            int sizePx = (int) (65 * vs);
+            imgView.setLayoutParams(new LinearLayout.LayoutParams(sizePx, sizePx));
+            imgAvatar = imgView;
+        } else {
+            TextView txtAvatar = new TextView(ctx.getContext());
+            txtAvatar.setText(emoji);
+            txtAvatar.setTextSize(36f * vs);
+            txtAvatar.setGravity(Gravity.CENTER);
+            imgAvatar = txtAvatar;
+        }
 
         // แถวไอคอนสถานะเหนือศัตรู: แถวสูง 0 และไอคอนวาดล้นขึ้นด้านบน
         // เพื่อไม่ให้กรอบตัวศัตรู (ที่ใช้เช็กชน) ใหญ่ขึ้นจากเดิม
@@ -320,11 +497,14 @@ public class SeaEnemy {
             case ORBIT_AND_WAIT: {
                 timeInOrbitMs += dtMs;
 
-                // 1. วนรอบผู้เล่นในระยะปลอดภัยด้วยความเร็วช้าลง (20%)
-                // อยู่ไกลเกินวงโคจรให้เดินเข้าหาด้วยความเร็วปกติ ไม่งั้นต้องใช้เวลาหลายวินาทีกว่าจะเข้าระยะโจมตี
+                // 1. ล้อมผู้เล่น: ศัตรูแต่ละตัวได้ช่องบนวงรอบผู้เล่น (แบ่งมุมเท่าๆ กัน) วงหมุนช้าๆ ตลอดเวลา
+                // และแต่ละตัวพุ่งเข้า-ออกรัศมีแบบซิกแซกไม่หยุดนิ่ง อยู่ไกลเกินวงให้วิ่งเข้าหาด้วยความเร็วปกติ
                 float orbitSpeed = (distance > holdMaxDistance + 60f) ? moveSpeed : moveSpeed * ORBIT_SPEED_FACTOR;
-                double angle = Math.atan2(-dy, -dx) + orbitDir * ORBIT_LOOKAHEAD_RAD;
-                float holdDist = Math.max(holdMinDistance, Math.min(holdMaxDistance, distance));
+                float tSec = now / 1000f;
+                double angle = slotAngle() + ORBIT_ROTATE_RAD_PER_S * tSec;
+                float zig = triangleWave(tSec * ZIGZAG_FREQ + zigPhase);
+                float holdDist = (holdMinDistance + holdMaxDistance) / 2f + zig * ZIGZAG_AMPLITUDE;
+                holdDist = Math.max(holdMinDistance, Math.min(holdMaxDistance, holdDist));
                 float holdX = targetX + (float) Math.cos(angle) * holdDist;
                 float holdY = targetY + (float) Math.sin(angle) * holdDist;
 
@@ -338,7 +518,7 @@ public class SeaEnemy {
                 }
 
                 // 2. ตรวจสอบคิวขอสิทธิ์พุ่งทะลุผ่านตัวผู้เล่น (Pass-Through Dash)
-                boolean isAttackerSlotFree = (activeAttackerId == 0 || activeAttackerId == enemyId);
+                boolean isAttackerSlotFree = attackSlotAvailable();
                 // ให้สิทธิ์กับตัวที่รอนานที่สุด ไม่งั้นตัวท้ายลิสต์ (เช่นหมึก) แพ้คิวซ้ำๆ เพราะสิทธิ์ถูกใช้ตลอด
                 boolean outranked = false;
                 for (int oIdx = 0; oIdx < ctx.getEnemies().size(); oIdx++) {
@@ -349,7 +529,7 @@ public class SeaEnemy {
                     }
                 }
                 if (isReadyToAttack(targetX, targetY, now) && isAttackerSlotFree && !outranked) {
-                    activeAttackerId = enemyId;
+                    claimAttackSlot();
                     currentState = State.WINDUP;
                     windupStartMs = now;
                     startWindup(targetX, targetY);
@@ -368,10 +548,7 @@ public class SeaEnemy {
                     } else {
                         // โจมตีระยะไกล: ปล่อยแล้วจบเลย ไม่ต้องพุ่ง กลับไปวนรอบรอรอบถัดไป
                         fireRangedAttack();
-                        if (activeAttackerId == enemyId) {
-                            activeAttackerId = 0;
-                            lastAttackEndTime = now;
-                        }
+                        releaseAttackSlot(now);
                         timeInOrbitMs = 0;
                         currentState = State.ORBIT_AND_WAIT;
                     }
@@ -386,7 +563,7 @@ public class SeaEnemy {
                 float ddist = (float) Math.hypot(ddx, ddy);
 
                 if (ddist > 0.001f) {
-                    float step = Math.min(DASH_SPEED * dt, ddist);
+                    float step = Math.min(dashSpeed * dt, ddist);
                     nextX += (ddx / ddist) * step;
                     nextY += (ddy / ddist) * step;
                 }
@@ -416,14 +593,12 @@ public class SeaEnemy {
                     ctx.damagePlayer(attackDamage);
                     HitEffects.playerHit(ctx, ctx.getPlayerContainer(), attackDamage);
                     hasHitPlayerThisDash = true;
+                    if (ddist > 0.001f) onPlayerHit(ddx / ddist, ddy / ddist);
                 }
 
                 // เมื่อพุ่งถึงจุดหมายด้านหลังผู้เล่นเรียบร้อย ให้กลับเข้าสู่สถานะวนรอบรอ
                 if (ddist <= 15f) {
-                    if (activeAttackerId == enemyId) {
-                        activeAttackerId = 0;
-                        lastAttackEndTime = now;
-                    }
+                    releaseAttackSlot(now);
                     timeInOrbitMs = 0;
                     currentState = State.ORBIT_AND_WAIT;
                 }
@@ -434,7 +609,8 @@ public class SeaEnemy {
         // 3. เว้นระยะห่างระหว่างศัตรูด้วยกันเอง (ตัวที่กำลังพุ่งทะลุจะไม่โดนผลัก)
         for (int otherIdx = 0; otherIdx < ctx.getEnemies().size(); otherIdx++) {
             SeaEnemy other = ctx.getEnemies().get(otherIdx);
-            if (currentState == State.ORBIT_AND_WAIT && other != this && other.isAlive && other.containerView != null) {
+            if (currentState == State.ORBIT_AND_WAIT && other != this && other.isAlive && other.containerView != null
+                    && !(other instanceof KrakenBoss)) {
                 float ox = other.containerView.getX();
                 float oy = other.containerView.getY();
                 float distToOther = (float) Math.hypot(nextX - ox, nextY - oy);
@@ -447,6 +623,16 @@ public class SeaEnemy {
                     nextY += pushY * pushForce;
                 }
             }
+        }
+
+        // แรงสะท้อนหลังยิง (แมงกะพรุน): ถูกผลักถอยตรงข้ามทิศยิง แล้วค่อยๆ หมดแรง
+        if (recoilVx != 0f || recoilVy != 0f) {
+            nextX += recoilVx * dt;
+            nextY += recoilVy * dt;
+            float decay = (float) Math.exp(-RECOIL_DECAY * dt);
+            recoilVx *= decay;
+            recoilVy *= decay;
+            if (Math.abs(recoilVx) + Math.abs(recoilVy) < 5f) recoilVx = recoilVy = 0f;
         }
 
         View area = (View) containerView.getParent();
@@ -472,7 +658,7 @@ public class SeaEnemy {
     /** พร้อมขอสิทธิ์โจมตีหรือยัง: ครบเวลารอ + พ้นช่วงพักหลังโจมตีล่าสุด + (หมึก) ผู้เล่นอยู่ในระยะกรวย */
     private boolean isReadyToAttack(float targetX, float targetY, long now) {
         if (!isAlive || containerView == null || currentState != State.ORBIT_AND_WAIT) return false;
-        if (timeInOrbitMs < ATTACK_INTERVAL_MS - WINDUP_MS) return false;
+        if (timeInOrbitMs < attackIntervalMs - WINDUP_MS) return false;
         if (now - lastAttackEndTime < 300) return false;
         if (attackType == AttackType.INK_CONE) {
             // หมึกพ่นได้เฉพาะตอนผู้เล่นอยู่ในระยะกรวย ไม่งั้นพ่นแล้วไม่ถึงตัว
@@ -485,11 +671,34 @@ public class SeaEnemy {
     private void fireRangedAttack() {
         float ecx = containerView.getX() + containerView.getWidth() / 2f;
         float ecy = containerView.getY() + containerView.getHeight() / 2f;
+        final float ax = aimDirX, ay = aimDirY;
+        Runnable onHit = () -> onPlayerHit(ax, ay);
         if (attackType == AttackType.LINE_SHOT) {
             float speed = BASE_SPEED * speedMultiplier * LINE_SHOT_SPEED_FACTOR;
-            RangedAttacks.fireLine(ctx, ecx, ecy, aimDirX, aimDirY, speed, attackDamage);
+            FrameLayout area = ctx.getGameArea();
+            if (area == null) return;
+            // ทุกด่านที่ผ่านมา เวลาที่ลำพลังบินข้ามจอสั้นลง 0.2 วินาที (บินเร็วขึ้น)
+            if (area.getWidth() > 0) {
+                float maxDist = (float) Math.hypot(area.getWidth(), area.getHeight());
+                float travelS = Math.max(MIN_TRAVEL_S, maxDist / speed - TRAVEL_CUT_PER_STAGE_S * (cfg.stage - 1));
+                speed = maxDist / travelS;
+            }
+            // กระสุนรัว 15 นัดตามทิศที่ล็อกไว้ตอนเตือน นัดละ 120 ms ดาเมจต่อนัดลดเหลือ 1/3 กันโดนรัวจนตาย
+            recoilVx = -ax * RECOIL_SPEED;
+            recoilVy = -ay * RECOIL_SPEED;
+            final float fspeed = speed;
+            final int shotDamage = Math.max(1, Math.round(attackDamage / 3f));
+            for (int i = 0; i < BARRAGE_SHOTS; i++) {
+                final Runnable shot = () -> {
+                    if (isAlive && ctx.isGameRunning() && !ctx.isGamePaused()) {
+                        RangedAttacks.fireLine(ctx, ecx, ecy, ax, ay, fspeed, shotDamage, onHit,
+                                WAVE_AMPLITUDE_PX, WAVE_LENGTH_PX);
+                    }
+                };
+                if (i == 0) shot.run(); else area.postDelayed(shot, i * BARRAGE_GAP_MS);
+            }
         } else if (attackType == AttackType.INK_CONE) {
-            RangedAttacks.inkCone(ctx, ecx, ecy, aimDirX, aimDirY, attackDamage);
+            RangedAttacks.inkCone(ctx, ecx, ecy, aimDirX, aimDirY, attackDamage, onHit);
         }
     }
 
@@ -502,6 +711,17 @@ public class SeaEnemy {
         float ecy = containerView.getY() + eh / 2f;
         float pcx = targetX + (pv != null ? pv.getWidth() / 2f : 0f);
         float pcy = targetY + (pv != null ? pv.getHeight() / 2f : 0f);
+
+        if (attackType == AttackType.LINE_SHOT) {
+            // เล็งนำไปตามทิศที่ผู้เล่นกำลังเคลื่อนที่ (ผู้เล่นจะเดินต่อไปอีกช่วงเตือน WINDUP_MS ก่อนยิง)
+            float ratio = ctx.getPlayerSpeedRatio();
+            if (ratio > 0.1f) {
+                double rad = Math.toRadians(ctx.getPlayerAngle());
+                float lead = BattleActivity.MAX_SPEED * ratio * WINDUP_MS / 1000f;
+                pcx += (float) Math.cos(rad) * lead;
+                pcy += (float) Math.sin(rad) * lead;
+            }
+        }
 
         if (attackType != AttackType.DASH) {
             float adx = pcx - ecx, ady = pcy - ecy;
@@ -583,7 +803,7 @@ public class SeaEnemy {
 
         // 1. แรงดันผลักถอยหลัง (Knockback Effect) เมื่อโดนสกิล
         View player = ctx.getPlayerContainer();
-        if (knockback && !swallowed && player != null && containerView != null) {
+        if (knockback && allowKnockback() && !swallowed && player != null && containerView != null) {
             float px = player.getX();
             float py = player.getY();
             float ex = containerView.getX();
@@ -610,10 +830,7 @@ public class SeaEnemy {
         // 2. ขัดจังหวะการพุ่งหากโดนสกิล
         if (currentState == State.ATTACKING || currentState == State.WINDUP) {
             clearAttackPath();
-            if (activeAttackerId == enemyId) {
-                activeAttackerId = 0;
-                lastAttackEndTime = System.currentTimeMillis();
-            }
+            releaseAttackSlot(System.currentTimeMillis());
             timeInOrbitMs = 0;
             currentState = State.ORBIT_AND_WAIT;
         }
@@ -627,6 +844,8 @@ public class SeaEnemy {
                     }).start();
         }
 
+        if (hp <= 0 && reviveOnDepleted()) return;
+
         if (hp <= 0) {
             isAlive = false;
             clearAttackPath();
@@ -635,7 +854,9 @@ public class SeaEnemy {
                         if (containerView != null) containerView.setVisibility(View.GONE);
                     }).start();
 
+            if (!(this instanceof KrakenBoss)) deathShockwave();
+            onDefeated();
             ctx.onEnemyDefeated();
         }
     }
-}
+}
