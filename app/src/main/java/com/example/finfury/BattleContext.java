@@ -74,6 +74,9 @@ public interface BattleContext {
     /** เรียกเมื่อบอสเสียชีวิตหนึ่ง (แต่ยังไม่ตาย) เพื่ออัปเดตข้อความด่าน */
     void onEnemyLifeLost();
 
+    /** ศัตรูตายที่จุดกึ่งกลาง (cx, cy) ให้สุ่มดรอปไอเทม (forceHeart = ดรอปหัวใจแน่นอน) */
+    void dropItemAt(float cx, float cy, boolean forceHeart);
+
     /** เรียกเมื่อ Ultimate จบ เพื่อรีเซ็ตสแตก */
     void onUltimateFinished();
 }
