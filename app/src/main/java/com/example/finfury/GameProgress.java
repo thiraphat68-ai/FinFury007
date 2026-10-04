@@ -42,6 +42,14 @@ public final class GameProgress {
         return Math.max(1, Math.min(MAX_STAGES, unlocked));
     }
 
+    /** ล้างความคืบหน้า: ดาทุกด่านและการปลดล็อก (กลับไปเหลือด่าน 1) ไม่แตะค่าตั้งเสียง/สอนเล่น */
+    public static void reset(Context context) {
+        SharedPreferences.Editor editor = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit();
+        for (int stage = 1; stage <= MAX_STAGES; stage++) editor.remove(starsKey(stage));
+        editor.remove("unlocked_stage");
+        editor.apply();
+    }
+
     /** เช่น 2 -> "★★☆" ; ถ้ายังไม่เคยชนะ (0) คืนข้อความว่าง */
     public static String starsText(int stars) {
         if (stars <= 0) return "";
