@@ -35,6 +35,13 @@ import java.util.Map;
  *  - Ultimate Circuit Link: ต่อศัตรูทั้งหมดเป็นวงจรเดียว 5 วินาที โดนตัวไหนตัวอื่นโดนด้วย
  */
 public class Swordfish extends Hero {
+    // ---- สเตตัสพื้นฐาน (สมดุล) ----
+    @Override public int getMaxHp() { return 70; }
+    @Override public float getBaseSpeedMultiplier() { return 1.25f; }
+    @Override public int getStackNeeded() { return 12; }
+    @Override public long getSkill1CooldownMs() { return 1500; }
+    @Override public long getSkill2CooldownMs() { return 3000; }
+
 
     // ---------- Skill 1: Charge Bite ----------
     private static final float DASH_DISTANCE = 350f;   // px

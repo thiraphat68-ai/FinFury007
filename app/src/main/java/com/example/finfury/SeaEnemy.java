@@ -385,8 +385,8 @@ public class SeaEnemy {
     protected void configureEnemyStats() {
         if (emoji.contains("🦀") || name.contains("ปู")) {
             // ปูซ่า: เลือดเยอะ ช้า
-            maxHp = 14;
-            hp = 14;
+            maxHp = 16;
+            hp = 16;
             speedMultiplier = 0.85f;
             holdMinDistance = 160f;
             holdMaxDistance = 240f;
@@ -394,8 +394,8 @@ public class SeaEnemy {
             moveStyle = MoveStyle.SIDESTEP;
         } else if (emoji.contains("🦑") || name.contains("หมึก")) {
             // หมึกยักษ์: วิ่งเร็ว วนใกล้ ดุดัน
-            maxHp = 11;
-            hp = 11;
+            maxHp = 12;
+            hp = 12;
             speedMultiplier = 1.25f;
             holdMinDistance = 420f;
             holdMaxDistance = 500f;  // ต้องน้อยกว่าระยะกรวยหมึก x0.9 (RangedAttacks.INK_RANGE) เพื่อให้กรวยถึงตัวผู้เล่น
@@ -404,8 +404,8 @@ public class SeaEnemy {
             moveStyle = MoveStyle.KITE;
         } else if (emoji.contains("🐢") || name.contains("เต่า")) {
             // เต่าทะเล: เลือดเยอะที่สุด วนไกล เดินช้า
-            maxHp = 16;
-            hp = 16;
+            maxHp = 18;
+            hp = 18;
             speedMultiplier = 0.85f;
             holdMinDistance = 240f;
             holdMaxDistance = 340f;
@@ -413,8 +413,8 @@ public class SeaEnemy {
             moveStyle = MoveStyle.PATROL;
         } else if (emoji.contains("🪼") || name.toLowerCase(Locale.US).contains("jellyfish") || name.contains("กะพรุน")) {
             // แมงกะพรุน: ความเร็วปกติ รักษาระยะห่าง 240px
-            maxHp = 10;
-            hp = 10;
+            maxHp = 9;
+            hp = 9;
             speedMultiplier = 1.0f;
             holdMinDistance = 180f;   // เข้าหาผู้เล่นใกล้กว่าเดิม (เดิม 320-360)
             holdMaxDistance = 220f;
@@ -423,8 +423,8 @@ public class SeaEnemy {
             moveStyle = MoveStyle.DRIFT;
         } else {
             // ดาวทะเล หรืออื่นๆ: สเตตัสสมดุล
-            maxHp = 10;
-            hp = 10;
+            maxHp = 11;
+            hp = 11;
             speedMultiplier = 1.0f;
             holdMinDistance = 200f;
             holdMaxDistance = 320f;

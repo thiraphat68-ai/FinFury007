@@ -13,7 +13,7 @@ import android.widget.FrameLayout;
  */
 public class KrakenBoss extends SeaEnemy {
 
-    private static final int BOSS_HP = 80;
+    private static final int BOSS_HP = 100;
     private static final int MAX_LIVES = 2;
     private static final int PHASE2_HP = 30;
 

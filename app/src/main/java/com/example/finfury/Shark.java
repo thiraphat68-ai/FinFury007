@@ -26,6 +26,13 @@ import java.util.List;
  *  - Ultimate Blood Frenzy     : 6 วินาที ว่ายเร็วขึ้น คูลดาวน์สั้นลง และกัดโดนแต่ละครั้งแรงขึ้นอีก 1 (กัดพลาด = รีเซ็ต)
  */
 public class Shark extends Hero {
+    // ---- สเตตัสพื้นฐาน (สมดุล) ----
+    @Override public int getMaxHp() { return 100; }
+    @Override public float getBaseSpeedMultiplier() { return 1.0f; }
+    @Override public int getStackNeeded() { return 10; }
+    @Override public long getSkill1CooldownMs() { return 2000; }
+    @Override public long getSkill2CooldownMs() { return 4000; }
+
 
     // ---------- Skill 1: Derivative Bite ----------
     private static final float BITE_DISTANCE = 350f;

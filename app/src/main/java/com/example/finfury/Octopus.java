@@ -31,6 +31,13 @@ import java.util.Set;
  *                            บีบ 1 ดาเมจทุก 0.5 วินาที (รวม 8) กองอยู่ในระยะ Tentacle Loop พอดี
  */
 public class Octopus extends Hero {
+    // ---- สเตตัสพื้นฐาน (สมดุล) ----
+    @Override public int getMaxHp() { return 115; }
+    @Override public float getBaseSpeedMultiplier() { return 0.95f; }
+    @Override public int getStackNeeded() { return 12; }
+    @Override public long getSkill1CooldownMs() { return 2500; }
+    @Override public long getSkill2CooldownMs() { return 4500; }
+
 
     // ---------- Skill 1: Tentacle Loop ----------
     private static final float LOOP_RADIUS = 200f;
