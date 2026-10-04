@@ -26,7 +26,7 @@ public class Pufferfish extends Hero {
     // ---- สเตตัสพื้นฐาน (สมดุล) ----
     @Override public int getMaxHp() { return 150; }
     @Override public float getBaseSpeedMultiplier() { return 0.8f; }
-    @Override public int getStackNeeded() { return 8; }
+    @Override public int getStackNeeded() { return 13; }
     @Override public long getSkill1CooldownMs() { return 3000; }
     @Override public long getSkill2CooldownMs() { return 6000; }
 
