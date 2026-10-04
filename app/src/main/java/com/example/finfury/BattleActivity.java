@@ -23,7 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-public class BattleActivity extends BaseActivity implements BattleContext {
+public class BattleActivity extends BaseActivity implements BattleContext, ItemManager.Host {
 
     private FrameLayout gameArea;
     private View playerContainer;
@@ -63,6 +63,8 @@ public class BattleActivity extends BaseActivity implements BattleContext {
     private int currentStack = 0;
     private int maxStack = 10;       // ตั้งตามฮีโร่ตอน onCreate
     private float heroBaseSpeed = 1f;
+    private ItemManager itemManager;
+    private TextView txtBuffs;
     private static final int MAX_STAGES = 5;
 
     // ดีบัฟลดพลัง Ultimate (ด่าน 3-4): ถูกตีครบทุก 2 ครั้ง ได้พลังต่อฮิต 70% นาน 8 วินาที
@@ -262,7 +264,59 @@ public class BattleActivity extends BaseActivity implements BattleContext {
                 if (e instanceof BossMinion) e.removeSilently();
             }
         }
+        // บอสเสียชีวิต: ดรอปหัวใจให้ที่ตัวบอส
+        for (int i = 0; i < enemyList.size(); i++) {
+            SeaEnemy e = enemyList.get(i);
+            if (e instanceof KrakenBoss && e.containerView != null) {
+                View v = e.containerView;
+                dropItemAt(v.getX() + v.getWidth() / 2f, v.getY() + v.getHeight() / 2f, true);
+                break;
+            }
+        }
         updateStageInfo();
+    }
+
+    @Override
+    public void dropItemAt(float cx, float cy, boolean forceHeart) {
+        if (itemManager != null && isGameRunning) itemManager.onEnemyDefeated(cx, cy, forceHeart);
+    }
+
+    // ---------- ItemManager.Host ----------
+    @Override public int getPlayerHp() { return playerHp; }
+    @Override public int getPlayerMaxHp() { return maxPlayerHp; }
+
+    @Override
+    public void healPlayer(int amount) {
+        playerHp = Math.min(maxPlayerHp, playerHp + amount);
+        if (barPlayerHp != null) barPlayerHp.setProgress(playerHp);
+        updateHpUI();
+    }
+
+    @Override
+    public void addStack(int amount) {
+        if (!isGameRunning || currentStack >= maxStack) return;
+        currentStack = Math.min(maxStack, currentStack + amount);
+        updateStackUI();
+        if (currentStack >= maxStack) quizManager.show();
+    }
+
+    @Override
+    public void freezeEnemies(float factor, long durationMs) {
+        for (int i = 0; i < enemyList.size(); i++) {
+            SeaEnemy e = enemyList.get(i);
+            if (e.isAlive) e.applySlow(factor, durationMs);
+        }
+    }
+
+    private void updateItems(float dt) {
+        if (itemManager == null) return;
+        itemManager.update(dt);
+        SeaEnemy.playerDamageBonus = itemManager.damageBonus();
+        if (txtBuffs != null && itemManager.buffTextChanged()) {
+            String text = itemManager.buffText();
+            txtBuffs.setText(text);
+            txtBuffs.setVisibility(text.isEmpty() ? View.GONE : View.VISIBLE);
+        }
     }
 
     @Override
@@ -298,6 +352,8 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         imgPlayer = findViewById(R.id.imgPlayer);
         imgProfile = findViewById(R.id.imgProfile);
         barPlayerHp = findViewById(R.id.barHp);
+        txtBuffs = findViewById(R.id.txtBuffs);
+        SeaEnemy.playerDamageBonus = 0;
         stackProgressBar = findViewById(R.id.barStack);
         txtStackGauge = findViewById(R.id.txtStackCount);
 
@@ -409,6 +465,7 @@ public class BattleActivity extends BaseActivity implements BattleContext {
 
         if (gameArea != null) {
             gameArea.post(() -> {
+                itemManager = new ItemManager(this, gameArea, playerContainer, this, true);
                 spawnStageEnemies();
                 updateStageInfo();
                 startGameLoop();
@@ -441,6 +498,7 @@ public class BattleActivity extends BaseActivity implements BattleContext {
 
             if (!isGamePaused) {
                 updateFish(dt);
+                updateItems(dt);
                 updatePlayerOverlays();
                 tickUltimateTimer(dt);
                 if (ultDebuffRemainingMs > 0f) {
@@ -485,7 +543,7 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         } else if (stunImmuneMs > 0f) {
             stunImmuneMs = Math.max(0f, stunImmuneMs - dt * 1000f);
         }
-        float effSpeed = heroBaseSpeed * speedMultiplier * slowFactor;
+        float effSpeed = heroBaseSpeed * speedMultiplier * slowFactor * (itemManager != null ? itemManager.speedFactor() : 1f);
         float targetVx = (skillLock || stunned) ? 0f : moveX * MAX_SPEED * effSpeed;
         float targetVy = (skillLock || stunned) ? 0f : moveY * MAX_SPEED * effSpeed;
         velX += (targetVx - velX) * k;
@@ -576,7 +634,7 @@ public class BattleActivity extends BaseActivity implements BattleContext {
     private void startCooldownUI(Button btn, String originalText, long baseMs) {
         if (btn == null) return;
         btn.setEnabled(false);
-        new CountDownTimer((long) (baseMs * cooldownMultiplier), 100) {
+        new CountDownTimer((long) (baseMs * cooldownMultiplier * (itemManager != null ? itemManager.cooldownFactor() : 1f)), 100) {
             @Override
             public void onTick(long millisUntilFinished) {
                 btn.setText(String.format(Locale.US, "%.1f", millisUntilFinished / 1000.0f));
@@ -620,6 +678,7 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         long nowMs = System.currentTimeMillis();
         if (nowMs - lastDamageMs < HIT_INVULN_MS) return;
         lastDamageMs = nowMs;
+        if (itemManager != null && itemManager.absorbHit()) return;   // โล่กันไว้ ไม่เสียเลือด ไม่นับเป็นโดนตี
 
         playerHp = Math.max(0, playerHp - damage);
         if (barPlayerHp != null) barPlayerHp.setProgress(playerHp);
@@ -807,6 +866,9 @@ public class BattleActivity extends BaseActivity implements BattleContext {
             pendingAutoUltimate = null;
         }
         hideUltimateDuration();
+        if (itemManager != null) itemManager.clear();
+        SeaEnemy.playerDamageBonus = 0;
+        if (txtBuffs != null) txtBuffs.setVisibility(View.GONE);
     }
 
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
@@ -1032,6 +1094,7 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         super.onDestroy();
         isGameRunning = false;
         SeaEnemy.resetAttackQueue();
+        SeaEnemy.playerDamageBonus = 0;
 
         Choreographer.getInstance().removeFrameCallback(frameCallback);
 

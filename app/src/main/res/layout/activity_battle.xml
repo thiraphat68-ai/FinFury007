@@ -144,6 +144,21 @@
         app:layout_constraintStart_toStartOf="@id/barHp"
         app:layout_constraintTop_toTopOf="@id/barHp" />
 
+    <!-- สถานะบัฟจากไอเทม (โล่/เร็ว/คูลดาวน์/ดาเมจ) ใต้หลอดเลือด: อัปเดตผ่าน BattleActivity -->
+    <TextView
+        android:id="@+id/txtBuffs"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:shadowColor="#000000"
+        android:shadowRadius="3"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        app:layout_constraintStart_toStartOf="@id/barHp"
+        app:layout_constraintTop_toBottomOf="@id/barHp" />
+
     <!-- ด่านที่กำลังเล่น + จำนวนศัตรูที่เหลือ (ใต้หลอด Stack ตรงกลางบน) -->
     <TextView
         android:id="@+id/txtStageInfo"

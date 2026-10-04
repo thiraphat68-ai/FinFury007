@@ -865,8 +865,11 @@ public class SeaEnemy {
         return (float) Math.hypot(px - (ax + abx * t), py - (ay + aby * t));
     }
 
+    /** โบนัสดาเมจจากไอเทม (BattleActivity เซ็ตทุกเฟรม) บวกเฉพาะการโดนครั้งเดียว ไม่บวกดาเมจต่อเนื่องที่ knockback=false */
+    public static int playerDamageBonus = 0;
+
     public void takeDamage(int damage) {
-        takeDamage(damage, true);
+        takeDamage(damage + playerDamageBonus, true);
     }
 
     /** knockback = false สำหรับสกิลที่ต้องการให้ศัตรูอยู่กับที่ (เช่น วงหวดหนวดที่โดนซ้ำหลายรอบ) */
@@ -933,7 +936,11 @@ public class SeaEnemy {
                         if (containerView != null) containerView.setVisibility(View.GONE);
                     }).start();
 
-            if (!(this instanceof KrakenBoss)) deathShockwave();
+            if (!(this instanceof KrakenBoss)) {
+                deathShockwave();
+                ctx.dropItemAt(containerView.getX() + containerView.getWidth() / 2f,
+                        containerView.getY() + containerView.getHeight() / 2f, false);
+            }
             onDefeated();
             ctx.onEnemyDefeated();
         }
