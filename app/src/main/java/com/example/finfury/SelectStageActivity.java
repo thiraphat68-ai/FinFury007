@@ -9,6 +9,7 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.annotation.NonNull; // 🟢 Import สำหรับแก้ Warning line 38
 
 public class SelectStageActivity extends BaseActivity {
@@ -57,7 +58,7 @@ public class SelectStageActivity extends BaseActivity {
     }
 
     private void updateStageUnlocks() {
-        // ทุกด่านเลือกได้ตั้งแต่เริ่ม ไม่ดูค่า "unlocked_stage" (BattleActivity ยังบันทึกค่านี้ไว้ตามเดิม)
+        // ปลดล็อกทีละด่านตามความคืบหน้า (GameProgress.getUnlockedStage)
 
         // ดาวที่ดีที่สุดของแต่ละด่านใต้ปุ่มด่าน
         int[] starViews = {R.id.txtStars1, R.id.txtStars2, R.id.txtStars3, R.id.txtStars4, R.id.txtStars5};
@@ -76,10 +77,17 @@ public class SelectStageActivity extends BaseActivity {
     private void setupStageButton(ImageButton button, int stageNumber, int drawableRes, int starsViewId) {
         if (button == null) return;
 
+        final boolean open = stageNumber <= GameProgress.getUnlockedStage(this);
         button.setEnabled(true);
-        button.setAlpha(1.0f);
-        button.setImageResource(drawableRes);
-        button.setOnClickListener(v -> startBattleStage(stageNumber));
+        button.setAlpha(open ? 1.0f : 0.6f);
+        button.setImageResource(open ? drawableRes : R.drawable.ic_whirlpool_lock);
+        button.setOnClickListener(v -> {
+            if (open) {
+                startBattleStage(stageNumber);
+            } else {
+                Toast.makeText(this, "ด่านนี้ยังล็อกอยู่ ผ่านด่าน " + (stageNumber - 1) + " ก่อน", Toast.LENGTH_SHORT).show();
+            }
+        });
         makeDraggable(button, findViewById(starsViewId), stageNumber);
     }
 

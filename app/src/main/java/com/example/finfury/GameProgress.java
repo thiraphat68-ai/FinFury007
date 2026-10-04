@@ -27,6 +27,21 @@ public final class GameProgress {
                 .edit().putInt(starsKey(stageId), stars).apply();
     }
 
+    public static final int MAX_STAGES = 5;
+
+    /**
+     * ด่านสูงสุดที่เล่นได้ (เริ่มที่ 1) = ค่า "unlocked_stage" ที่ BattleActivity บันทึกตอนชนะ
+     * หรือด่านถัดจากด่านที่เคยได้ดาวสูงสุด (กันกรณีค่าหายแต่ดาวยังอยู่) ไม่เกิน MAX_STAGES
+     */
+    public static int getUnlockedStage(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        int unlocked = prefs.getInt("unlocked_stage", 1);
+        for (int stage = 1; stage <= MAX_STAGES; stage++) {
+            if (getStars(context, stage) > 0) unlocked = Math.max(unlocked, stage + 1);
+        }
+        return Math.max(1, Math.min(MAX_STAGES, unlocked));
+    }
+
     /** เช่น 2 -> "★★☆" ; ถ้ายังไม่เคยชนะ (0) คืนข้อความว่าง */
     public static String starsText(int stars) {
         if (stars <= 0) return "";
