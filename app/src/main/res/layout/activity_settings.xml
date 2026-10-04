@@ -45,6 +45,16 @@
         </LinearLayout>
 
         <Button
+            android:id="@+id/btnResetProgress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:backgroundTint="#C0392B"
+            android:text="🗑 รีเซ็ตความคืบหน้า"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
+
+        <Button
             android:id="@+id/btnSettingsBack"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
