@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animation-list xmlns:android="http://schemas.android.com/apk/res/android"
+    android:oneshot="false">
+    <item android:drawable="@drawable/octo_idle_00" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_01" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_02" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_03" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_04" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_05" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_06" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_07" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_08" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_09" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_10" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_11" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_12" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_13" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_14" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_15" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_16" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_17" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_18" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_19" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_20" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_21" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_22" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_23" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_24" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_25" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_26" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_27" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_28" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_29" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_30" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_31" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_32" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_33" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_34" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_35" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_36" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_37" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_38" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_39" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_40" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_41" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_42" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_43" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_44" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_45" android:duration="83" />
+    <item android:drawable="@drawable/octo_idle_46" android:duration="83" />
+</animation-list>
