@@ -21,7 +21,7 @@ import androidx.annotation.NonNull;
 
 /**
  * Electric Eel (วิชาฟิสิกส์):
- *  - Skill 1 Magnetic Repulsion        : คลื่นแม่เหล็กรอบตัวรัศมี 220 px ดาเมจ 2 ผลักถอย 250 px
+ *  - Skill 1 Magnetic Repulsion        : คลื่นแม่เหล็กรอบตัวรัศมี 220 px ดาเมจ 2 ผลักทุกตัวไปทางเดียวกับที่ปลาหันอยู่ 450 px
  *                                         ชนขอบจอ/ศัตรูตัวอื่นระหว่างถูกผลัก = ดาเมจเพิ่ม 2
  *  - Skill 2 Particle Accelerator Shot : กระสุนไฟฟ้าที่วิ่งเร่งขึ้นเรื่อยๆ (พลังงานจลน์) ยิ่งไกลยิ่งแรง 1 -> 4 ดาเมจที่ 1100 px
  *  - Ultimate Railgun                  : ชาร์จ 1 วินาที (ขยับไม่ได้) แล้วยิงลำแสงใหญ่ยาวสุดจอ ทะลุทุกตัว
@@ -39,8 +39,8 @@ public class ElectricEel extends Hero {
     // ---------- Skill 1: Magnetic Repulsion ----------
     private static final float REPEL_RADIUS = 220f;
     private static final int REPEL_DAMAGE = 2;
-    private static final float KNOCKBACK_DISTANCE = 250f;
-    private static final long KNOCKBACK_MS = 320;
+    private static final float KNOCKBACK_DISTANCE = 450f;
+    private static final long KNOCKBACK_MS = 450;
     private static final int COLLISION_DAMAGE = 2;
 
     // ---------- Skill 2: Particle Accelerator Shot ----------
@@ -67,7 +67,7 @@ public class ElectricEel extends Hero {
     @Override public String getSkill1Name() { return "Magnetic Repulsion"; }
     @Override public String getSkill1Icon() { return "🧲"; }
     @Override public String getSkill1Description() {
-        return "ปล่อยคลื่นแม่เหล็กรอบตัว โดนผลักถอยดาเมจ 2 หน่วย ชนขอบจอ/ศัตรูอื่นโดนอีก 2 ดาเมจ"; }
+        return "ปล่อยคลื่นแม่เหล็กรอบตัว ดาเมจ 2 หน่วย ผลักทุกตัวไปทางที่ปลาหันอยู่ไกล 450 px ชนขอบจอ/ศัตรูอื่นโดนอีก 2 ดาเมจ"; }
 
     @Override public String getSkill2Name() { return "Particle Accelerator Shot"; }
     @Override public String getSkill2Icon() { return "⚛️"; }
@@ -89,7 +89,12 @@ public class ElectricEel extends Hero {
         final float cx = player.getX() + player.getWidth() / 2f;
         final float cy = player.getY() + player.getHeight() / 2f;
 
-        FieldView field = new FieldView(ctx.getContext(), cx, cy);
+        // ทุกตัวถูกผลักไปทิศเดียวกัน = ทิศที่ปลาหันอยู่ (ทิศจอยล่าสุด)
+        final float pushRad = (float) Math.toRadians(ctx.getPlayerAngle());
+        final float pushX = (float) Math.cos(pushRad);
+        final float pushY = (float) Math.sin(pushRad);
+
+        FieldView field = new FieldView(ctx.getContext(), cx, cy, pushX, pushY);
         field.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         area.addView(field);
@@ -118,14 +123,11 @@ public class ElectricEel extends Hero {
             ctx.onHitEnemySuccess();
             if (!enemy.isAlive) continue;
 
-            // ผลักออกจากตัวปลา (ถ้าซ้อนทับกันพอดีให้ผลักขึ้นบน)
-            float dx = dist > 0.01f ? (ex - cx) / dist : 0f;
-            float dy = dist > 0.01f ? (ey - cy) / dist : -1f;
-            knockBack(ctx, enemy, dx, dy);
+            knockBack(ctx, enemy, pushX, pushY);
         }
     }
 
-    /** ผลักศัตรู 250 px ตามทิศ (dx,dy) ถ้าชนขอบจอหรือศัตรูตัวอื่นระหว่างทาง = โดนอีก 2 ดาเมจแล้วหยุด */
+    /** ผลักศัตรู 450 px ตามทิศ (dx,dy) ถ้าชนขอบจอหรือศัตรูตัวอื่นระหว่างทาง = โดนอีก 2 ดาเมจแล้วหยุด */
     private void knockBack(BattleContext ctx, SeaEnemy enemy, float dx, float dy) {
         final View ev = enemy.containerView;
         final View area = (View) ev.getParent();
@@ -427,15 +429,17 @@ public class ElectricEel extends Hero {
     private static class FieldView extends View {
         private final Paint ring = stroke(Color.parseColor("#FF80D8FF"), 8f);
         private final Paint lines = stroke(Color.parseColor("#FFB3E5FC"), 5f);
-        private final Path fieldPath = new Path();
         private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final float cx, cy;
+        private final float dirX, dirY;
         private float progress;
 
-        FieldView(Context c, float cx, float cy) {
+        FieldView(Context c, float cx, float cy, float dirX, float dirY) {
             super(c);
             this.cx = cx;
             this.cy = cy;
+            this.dirX = dirX;
+            this.dirY = dirY;
             fill.setColor(Color.parseColor("#2200B0FF"));
         }
 
@@ -453,22 +457,15 @@ public class ElectricEel extends Hero {
             ring.setAlpha(alpha);
             canvas.drawCircle(cx, cy, r, ring);
 
-            // เส้นแรงโค้งออกจากตัว 8 เส้น บิดเป็นเกลียวตามระยะ
+            // เส้นแรงขนาน 5 เส้นพุ่งไปทางทิศที่ผลัก (ให้เห็นว่าศัตรูจะถูกผลักไปทางไหน)
             lines.setAlpha(alpha);
-            Path p = fieldPath;   // ใช้ Path เดิมซ้ำ (reset ในลูป)
-            for (int i = 0; i < 8; i++) {
-                double a0 = Math.PI * 2 * i / 8;
-                p.reset();
-                for (int k = 0; k <= 10; k++) {
-                    float t = k / 10f;
-                    double a = a0 + t * 0.7;
-                    float rr = 20f + (r - 20f) * t;
-                    float x = cx + (float) Math.cos(a) * rr;
-                    float y = cy + (float) Math.sin(a) * rr;
-                    if (k == 0) p.moveTo(x, y);
-                    else p.lineTo(x, y);
-                }
-                canvas.drawPath(p, lines);
+            float px = -dirY, py = dirX;   // แนวตั้งฉากกับทิศผลัก
+            for (int i = -2; i <= 2; i++) {
+                float off = i * r * 0.28f;
+                float x0 = cx + px * off + dirX * r * 0.15f;
+                float y0 = cy + py * off + dirY * r * 0.15f;
+                float len = r * (1.1f + 0.6f * progress);
+                canvas.drawLine(x0, y0, x0 + dirX * len, y0 + dirY * len, lines);
             }
         }
     }
