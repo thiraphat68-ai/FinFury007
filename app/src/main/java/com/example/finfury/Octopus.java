@@ -34,7 +34,7 @@ public class Octopus extends Hero {
     // ---- สเตตัสพื้นฐาน (สมดุล) ----
     @Override public int getMaxHp() { return 115; }
     @Override public float getBaseSpeedMultiplier() { return 0.95f; }
-    @Override public int getStackNeeded() { return 12; }
+    @Override public int getStackNeeded() { return 20; }
     @Override public long getSkill1CooldownMs() { return 2500; }
     @Override public long getSkill2CooldownMs() { return 4500; }
 

@@ -29,7 +29,7 @@ public class Shark extends Hero {
     // ---- สเตตัสพื้นฐาน (สมดุล) ----
     @Override public int getMaxHp() { return 100; }
     @Override public float getBaseSpeedMultiplier() { return 1.0f; }
-    @Override public int getStackNeeded() { return 10; }
+    @Override public int getStackNeeded() { return 16; }
     @Override public long getSkill1CooldownMs() { return 2000; }
     @Override public long getSkill2CooldownMs() { return 4000; }
 

@@ -34,7 +34,7 @@ public class ElectricEel extends Hero {
     // ---- สเตตัสพื้นฐาน (สมดุล) ----
     @Override public int getMaxHp() { return 85; }
     @Override public float getBaseSpeedMultiplier() { return 1.1f; }
-    @Override public int getStackNeeded() { return 9; }
+    @Override public int getStackNeeded() { return 15; }
     @Override public long getSkill1CooldownMs() { return 2000; }
     @Override public long getSkill2CooldownMs() { return 2500; }
 
