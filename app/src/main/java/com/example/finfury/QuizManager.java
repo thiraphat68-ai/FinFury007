@@ -54,7 +54,7 @@ public class QuizManager {
         void onTimeout();
     }
 
-    private static final long QUIZ_TIME_MS = 60000; // 1 นาที
+    private static final long QUIZ_TIME_MS = 30000; // 30 วินาที
     private static final long FEEDBACK_MS = 2000;
     private static final int BAR_MAX = 1000;
 

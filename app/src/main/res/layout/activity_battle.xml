@@ -597,13 +597,20 @@
         android:visibility="gone">
 
         <LinearLayout
-            android:layout_width="280dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:background="#1A252C"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="16dp">
+
+          <!-- คอลัมน์ซ้าย: ปุ่มเมนูหยุดเกม -->
+          <LinearLayout
+            android:layout_width="240dp"
+            android:layout_height="wrap_content"
             android:gravity="center_horizontal"
-            android:orientation="vertical"
-            android:padding="20dp">
+            android:orientation="vertical">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -642,6 +649,36 @@
                 android:text="ออกไปหน้าเลือกด่าน"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp" />
+          </LinearLayout>
+
+          <!-- คอลัมน์ขวา: คู่มือไอเทม (แถวสร้างจากโค้ดตาม ItemManager.Type) เลื่อนดูได้ -->
+          <LinearLayout
+            android:layout_width="300dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ไอเทมในเกม"
+                android:textColor="#F39C12"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="190dp"
+                android:layout_marginTop="6dp"
+                android:fadeScrollbars="false">
+
+                <LinearLayout
+                    android:id="@+id/layoutItemGuide"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </ScrollView>
+          </LinearLayout>
         </LinearLayout>
     </FrameLayout>
 

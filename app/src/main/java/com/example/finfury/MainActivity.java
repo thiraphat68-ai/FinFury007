@@ -5,14 +5,15 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 import android.widget.VideoView;
 import androidx.activity.EdgeToEdge;
+import androidx.activity.OnBackPressedCallback;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -68,7 +69,7 @@ public class MainActivity extends BaseActivity {
         // 🎬 2. จัดการวิดีโอพื้นหลัง หน้าที่ 2 (เลือกด่าน)
         // ==========================================
         videoBackgroundLevel = findViewById(R.id.videoBackgroundLevel);
-        String videoPathLevel = "android.resource://" + getPackageName() + "/" + R.raw.bg_level_video;
+        String videoPathLevel = "android.resource://" + getPackageName() + "/" + R.raw.bg_laval_video;
         videoBackgroundLevel.setVideoURI(Uri.parse(videoPathLevel));
         videoBackgroundLevel.setOnPreparedListener(mp -> {
             mp.setLooping(true);
@@ -108,13 +109,37 @@ public class MainActivity extends BaseActivity {
         // ==========================================
         ImageButton btnBack = findViewById(R.id.btnBack);
         if (btnBack != null) {
-            btnBack.setOnClickListener(v -> {
-                SoundManager.play(SoundManager.Sfx.BUTTON);
-                layoutHeroSelect.setVisibility(View.GONE); // ซ่อนหน้าเลือกตัวละคร
-                layoutLevelSelect.setVisibility(View.VISIBLE); // แสดงหน้าเลือกด่านอีกครั้ง
-                videoBackgroundLevel.start(); // เล่นวิดีโอด่านต่อ
-            });
+            btnBack.setOnClickListener(v -> backFromHeroSelect());
         }
+
+        // ปุ่มย้อนกลับหน้าเลือกด่าน (กลับเมนูหลัก) กันกล้องหน้า/มุมโค้งเหมือนหน้าเลือกฮีโร่
+        ImageButton btnBackLevel = findViewById(R.id.btnBackLevel);
+        if (btnBackLevel != null) {
+            btnBackLevel.setOnClickListener(v -> backFromLevelSelect());
+            ViewCompat.setOnApplyWindowInsetsListener(btnBackLevel, (v, insets) -> {
+                Insets cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout());
+                ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) v.getLayoutParams();
+                lp.setMarginStart(Math.max(minHeroPad, cutout.left));
+                v.setLayoutParams(lp);
+                return insets;
+            });
+            ViewCompat.requestApplyInsets(btnBackLevel);
+        }
+
+        // ปุ่ม/ท่าทางย้อนกลับของระบบ: ใช้ตัวช่วยตัวเดียวกับปุ่มบนหน้าจอ
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (layoutHeroSelect.getVisibility() == View.VISIBLE) {
+                    backFromHeroSelect();
+                } else if (layoutLevelSelect.getVisibility() == View.VISIBLE) {
+                    backFromLevelSelect();
+                } else {
+                    setEnabled(false);   // หน้าเมนูหลัก: ให้ระบบปิดแอปตามปกติ
+                    getOnBackPressedDispatcher().onBackPressed();
+                }
+            }
+        });
 
         // ==========================================
         // ⚔️ 4. ระบบเลือกตัวละคร (Hero Highlight & Details)
@@ -163,10 +188,7 @@ public class MainActivity extends BaseActivity {
             final int stageId = i + 1;
             ImageButton btnStage = findViewById(stageButtonIds[i]);
             btnStage.setOnClickListener(v -> {
-                if (stageId > GameProgress.getUnlockedStage(this)) {
-                    Toast.makeText(this, "ด่านนี้ยังล็อกอยู่ ผ่านด่าน " + (stageId - 1) + " ก่อน", Toast.LENGTH_SHORT).show();
-                    return;
-                }
+                if (stageId > GameProgress.getUnlockedStage(this)) return;   // ด่านล็อก: ไม่ทำอะไร
                 SoundManager.play(SoundManager.Sfx.BUTTON);
                 selectedStageId = stageId;
                 layoutLevelSelect.setVisibility(View.GONE);
@@ -205,6 +227,23 @@ public class MainActivity extends BaseActivity {
         }
     }
 
+    /** หน้าเลือกฮีโร่ -> หน้าเลือกด่าน */
+    private void backFromHeroSelect() {
+        SoundManager.play(SoundManager.Sfx.BUTTON);
+        findViewById(R.id.layoutHeroSelect).setVisibility(View.GONE); // ซ่อนหน้าเลือกตัวละคร
+        layoutLevelSelect.setVisibility(View.VISIBLE); // แสดงหน้าเลือกด่านอีกครั้ง
+        videoBackgroundLevel.start(); // เล่นวิดีโอด่านต่อ
+    }
+
+    /** หน้าเลือกด่าน -> เมนูหลัก */
+    private void backFromLevelSelect() {
+        SoundManager.play(SoundManager.Sfx.BUTTON);
+        layoutLevelSelect.setVisibility(View.GONE);
+        videoBackgroundLevel.pause();
+        layoutMainMenu.setVisibility(View.VISIBLE);
+        videoBackground.start();
+    }
+
     @Override
     protected void onPause() {
         super.onPause();
@@ -226,7 +265,7 @@ public class MainActivity extends BaseActivity {
             if (layoutMainMenu.getVisibility() == View.VISIBLE) {
                 reloadVideo(videoBackground, R.raw.bg_video);
             } else if (layoutLevelSelect.getVisibility() == View.VISIBLE) {
-                reloadVideo(videoBackgroundLevel, R.raw.bg_level_video);
+                reloadVideo(videoBackgroundLevel, R.raw.bg_laval_video);
             }
         }
     }

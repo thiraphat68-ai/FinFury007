@@ -86,6 +86,19 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
+        <!-- 🔙 ปุ่มย้อนกลับ (กลับเมนูหลัก) -->
+        <ImageButton
+            android:id="@+id/btnBackLevel"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="24dp"
+            android:contentDescription="กลับ"
+            android:src="@android:drawable/ic_menu_revert"
+            android:backgroundTint="#80000000"
+            app:tint="#FFFFFF"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
         <TextView
             android:id="@+id/txtSelectStage"
             android:layout_width="wrap_content"

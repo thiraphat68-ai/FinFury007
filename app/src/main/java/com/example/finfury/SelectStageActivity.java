@@ -9,7 +9,6 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.widget.ImageButton;
 import android.widget.TextView;
-import android.widget.Toast;
 import androidx.annotation.NonNull; // 🟢 Import สำหรับแก้ Warning line 38
 
 public class SelectStageActivity extends BaseActivity {
@@ -82,11 +81,7 @@ public class SelectStageActivity extends BaseActivity {
         button.setAlpha(open ? 1.0f : 0.6f);
         button.setImageResource(open ? drawableRes : R.drawable.ic_whirlpool_lock);
         button.setOnClickListener(v -> {
-            if (open) {
-                startBattleStage(stageNumber);
-            } else {
-                Toast.makeText(this, "ด่านนี้ยังล็อกอยู่ ผ่านด่าน " + (stageNumber - 1) + " ก่อน", Toast.LENGTH_SHORT).show();
-            }
+            if (open) startBattleStage(stageNumber);
         });
         makeDraggable(button, findViewById(starsViewId), stageNumber);
     }

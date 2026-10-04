@@ -17,6 +17,8 @@ import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
+import android.graphics.Color;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.activity.OnBackPressedCallback;
 
@@ -792,6 +794,22 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         });
     }
 
+    /** คู่มือไอเทมในเมนูหยุดเกม: สร้างแถวจาก ItemManager.Type เพื่อให้ตรงกับ enum เสมอ */
+    private void buildItemGuide() {
+        LinearLayout guide = findViewById(R.id.layoutItemGuide);
+        if (guide == null) return;
+        guide.removeAllViews();
+        int pad = Math.round(4 * getResources().getDisplayMetrics().density);
+        for (ItemManager.Type type : ItemManager.Type.values()) {
+            TextView row = new TextView(this);
+            row.setText(type.label());
+            row.setTextColor(Color.WHITE);
+            row.setTextSize(13f);
+            row.setPadding(0, pad, 0, pad);
+            guide.addView(row);
+        }
+    }
+
     // =========================================================
     // Overlay: เมนูหยุดเกม / หน้าจอชนะ-แพ้
     // =========================================================
@@ -802,6 +820,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         findViewById(R.id.btnPauseResume).setOnClickListener(v -> closePauseMenu());
         findViewById(R.id.btnPauseRestart).setOnClickListener(v -> restartStage());
         findViewById(R.id.btnPauseExit).setOnClickListener(v -> returnToLevelSelect());
+        buildItemGuide();
 
         // ปุ่ม Back ของเครื่อง: เปิดเมนูหยุดเกม / ถ้าเมนูเปิดอยู่ให้เล่นต่อ (ระหว่างขึ้นโจทย์หรือหน้าจอผลลัพธ์ไม่ทำอะไร)
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -956,13 +975,6 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         if (allDead && isGameRunning) {
             SoundManager.play(SoundManager.Sfx.WIN);
             isGameRunning = false;
-
-            SharedPreferences prefs = getSharedPreferences("GamePrefs", MODE_PRIVATE);
-            int currentUnlocked = prefs.getInt("unlocked_stage", 1);
-
-            if (currentStageId >= currentUnlocked) {
-                prefs.edit().putInt("unlocked_stage", currentStageId + 1).apply();
-            }
 
             // ดาวตาม HP ที่เหลือ เก็บเฉพาะสถิติที่ดีที่สุดของด่านนี้
             int stars = starsForRemainingHp();

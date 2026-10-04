@@ -21,22 +21,42 @@ import java.util.Random;
 public class ItemManager {
 
     public enum Type {
-        HEART("❤️", "#E53935", 25),
-        ENERGY("⚡", "#FBC02D", 25),
-        SHIELD("🛡️", "#1E88E5", 15),
-        SPEED("💨", "#26C6DA", 12),
-        COOLDOWN("⏱️", "#8E24AA", 12),
-        DAMAGE("🔥", "#FB8C00", 6),
-        FREEZE("🧊", "#4FC3F7", 5);
+        HEART("❤️", "#E53935", 25, "หัวใจ",
+                "ฟื้นเลือด " + Math.round(HEAL_PERCENT * 100) + "%"),
+        ENERGY("⚡", "#FBC02D", 25, "พลังงาน",
+                "เพิ่มสแตก +" + ENERGY_AMOUNT),
+        SHIELD("🛡️", "#1E88E5", 15, "โล่",
+                "กันดาเมจ 1 ครั้ง (นาน " + secText(SHIELD_MS) + " วินาที)"),
+        SPEED("💨", "#26C6DA", 12, "ว่ายเร็ว",
+                "ความเร็ว x" + String.format(Locale.US, "%.1f", SPEED_FACTOR) + " นาน " + secText(SPEED_MS) + " วินาที"),
+        COOLDOWN("⏱️", "#8E24AA", 12, "ลดคูลดาวน์",
+                "สกิลฟื้นเร็วขึ้น " + String.format(Locale.US, "%.0f", 1f / COOLDOWN_FACTOR) + " เท่า นาน " + secText(COOLDOWN_MS) + " วินาที"),
+        DAMAGE("🔥", "#FB8C00", 6, "ดาเมจเพิ่ม",
+                "+" + DAMAGE_BONUS + " ดาเมจต่อฮิต นาน " + secText(DAMAGE_MS) + " วินาที"),
+        FREEZE("🧊", "#4FC3F7", 5, "แช่แข็ง",
+                "ศัตรูช้าลง " + Math.round((1f - FREEZE_FACTOR) * 100) + "% นาน " + secText(FREEZE_MS) + " วินาที");
 
         final String icon;
         final int color;
         final int weight;
-        Type(String icon, String colorHex, int weight) {
+        final String nameTh;
+        final String descTh;
+        Type(String icon, String colorHex, int weight, String nameTh, String descTh) {
             this.icon = icon;
             this.color = Color.parseColor(colorHex);
             this.weight = weight;
+            this.nameTh = nameTh;
+            this.descTh = descTh;
         }
+
+        /** เช่น "🛡️ โล่: กันดาเมจ 1 ครั้ง (นาน 10 วินาที)" */
+        public String label() {
+            return icon + " " + nameTh + ": " + descTh;
+        }
+    }
+
+    private static String secText(long ms) {
+        return String.valueOf(ms / 1000);
     }
 
     /** สิ่งที่ไอเทมสั่งให้ฉากต่อสู้ทำ */
@@ -229,31 +249,31 @@ public class ItemManager {
             case HEART:
                 int heal = Math.max(1, Math.round(host.getPlayerMaxHp() * HEAL_PERCENT));
                 host.healPlayer(heal);
-                popup("+" + heal + " HP", Color.parseColor("#EF5350"));
+                popup(type.label(), Color.parseColor("#EF5350"));
                 break;
             case ENERGY:
                 host.addStack(ENERGY_AMOUNT);
-                popup("⚡ +" + ENERGY_AMOUNT, Color.parseColor("#FDD835"));
+                popup(type.label(), Color.parseColor("#FDD835"));
                 break;
             case SHIELD:
                 shieldMs = SHIELD_MS;
-                popup("🛡️ โล่", Color.parseColor("#64B5F6"));
+                popup(type.label(), Color.parseColor("#64B5F6"));
                 break;
             case SPEED:
                 speedMs = SPEED_MS;
-                popup("💨 เร็วขึ้น", Color.parseColor("#4DD0E1"));
+                popup(type.label(), Color.parseColor("#4DD0E1"));
                 break;
             case COOLDOWN:
                 cooldownMs = COOLDOWN_MS;
-                popup("⏱️ คูลดาวน์ลด", Color.parseColor("#BA68C8"));
+                popup(type.label(), Color.parseColor("#BA68C8"));
                 break;
             case DAMAGE:
                 damageMs = DAMAGE_MS;
-                popup("🔥 ดาเมจ +" + DAMAGE_BONUS, Color.parseColor("#FFA726"));
+                popup(type.label(), Color.parseColor("#FFA726"));
                 break;
             case FREEZE:
                 host.freezeEnemies(FREEZE_FACTOR, FREEZE_MS);
-                popup("🧊 ศัตรูช้าลง", Color.parseColor("#81D4FA"));
+                popup(type.label(), Color.parseColor("#81D4FA"));
                 break;
         }
     }
@@ -300,10 +320,19 @@ public class ItemManager {
         tv.setShadowLayer(4f, 0f, 0f, Color.BLACK);
         tv.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT));
-        tv.setX(player.getX());
-        tv.setY(player.getY() - dp(24));
+        // ข้อความยาว: ตัดบรรทัดไม่ให้กว้างเกินพื้นที่เกม แล้วดันตำแหน่ง X ให้อยู่ในกรอบ
+        float margin = dp(8);
+        float maxW = Math.max(dp(120), area.getWidth() - margin * 2);
+        tv.setMaxWidth((int) maxW);
+        tv.setGravity(Gravity.CENTER);
+        tv.measure(View.MeasureSpec.makeMeasureSpec((int) maxW, View.MeasureSpec.AT_MOST),
+                View.MeasureSpec.UNSPECIFIED);
+        float w = tv.getMeasuredWidth();
+        float cx = player.getX() + player.getWidth() / 2f;
+        tv.setX(clamp(cx - w / 2f, margin, Math.max(margin, area.getWidth() - w - margin)));
+        tv.setY(Math.max(margin, player.getY() - dp(24)));
         area.addView(tv);
-        tv.animate().translationYBy(-dp(50)).alpha(0f).setDuration(900)
+        tv.animate().translationYBy(-dp(50)).alpha(0f).setDuration(1500)
                 .withEndAction(() -> {
                     if (tv.getParent() == area) area.removeView(tv);
                 }).start();
