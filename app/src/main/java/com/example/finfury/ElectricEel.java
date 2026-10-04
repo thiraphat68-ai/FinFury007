@@ -8,7 +8,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
-import android.graphics.Path;
+import android.graphics.RectF;
 import android.graphics.RadialGradient;
 import android.graphics.Shader;
 import android.view.View;
@@ -19,11 +19,14 @@ import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * Electric Eel (วิชาฟิสิกส์):
- *  - Skill 1 Magnetic Repulsion        : คลื่นแม่เหล็กรอบตัวรัศมี 220 px ดาเมจ 2 ผลักทุกตัวไปทางเดียวกับที่ปลาหันอยู่ 450 px
- *                                         ชนขอบจอ/ศัตรูตัวอื่นระหว่างถูกผลัก = ดาเมจเพิ่ม 2
- *  - Skill 2 Particle Accelerator Shot : กระสุนไฟฟ้าที่วิ่งเร่งขึ้นเรื่อยๆ (พลังงานจลน์) ยิ่งไกลยิ่งแรง 1 -> 4 ดาเมจที่ 1100 px
+ *  - Skill 1 Magnetic Repulsion        : คลื่นแม่เหล็ก 1 ลูกพุ่งออกเป็นรูปพัดไปทางที่ปลาหัน ระยะ 650 px
+ *                                         ศัตรูที่คลื่นผ่าน ดาเมจ 2 ผลักไปทางเดียวกัน 450 px (ชนขอบจอ/ศัตรูอื่น = ดาเมจเพิ่ม 2)
+ *  - Skill 2 Laser Beam                : เลเซอร์ตรงๆ ระยะจำกัด 650 px ทะลุทุกตัวในแนว ดาเมจ 3 คูลดาวน์สั้น
  *  - Ultimate Railgun                  : ชาร์จ 1 วินาที (ขยับไม่ได้) แล้วยิงลำแสงใหญ่ยาวสุดจอ ทะลุทุกตัว
  *                                         ดาเมจ 8 + สตัน 2 วินาที ยิงครั้งเดียว เล็งพลาดคือเสียเปล่า
  */
@@ -33,21 +36,22 @@ public class ElectricEel extends Hero {
     @Override public float getBaseSpeedMultiplier() { return 1.1f; }
     @Override public int getStackNeeded() { return 9; }
     @Override public long getSkill1CooldownMs() { return 2000; }
-    @Override public long getSkill2CooldownMs() { return 5000; }
+    @Override public long getSkill2CooldownMs() { return 2500; }
 
 
     // ---------- Skill 1: Magnetic Repulsion ----------
-    private static final float REPEL_RADIUS = 220f;
+    private static final float WAVE_RANGE = 650f;          // คลื่นวิ่งไกลสุดจากตัวปลา
+    private static final long WAVE_MS = 550;
+    private static final float WAVE_SPAN_DEG = 120f;       // มุมของคลื่นรูปพัด (กว้างด้านละ 60°)
     private static final int REPEL_DAMAGE = 2;
     private static final float KNOCKBACK_DISTANCE = 450f;
     private static final long KNOCKBACK_MS = 450;
     private static final int COLLISION_DAMAGE = 2;
 
-    // ---------- Skill 2: Particle Accelerator Shot ----------
-    private static final float SHOT_RANGE = 1100f;
-    private static final long SHOT_MS = 800;              // เวลาบินจนสุดระยะ (ระยะ = SHOT_RANGE * t^2 จึงเร่งขึ้นเรื่อยๆ)
-    private static final int SHOT_MIN_DAMAGE = 1;
-    private static final int SHOT_MAX_DAMAGE = 4;
+    // ---------- Skill 2: Laser Beam ----------
+    private static final float LASER_RANGE = 650f;
+    private static final float LASER_WIDTH = 36f;
+    private static final int LASER_DAMAGE = 3;
 
     // ---------- Ultimate: Railgun ----------
     private static final long CHARGE_MS = 1000;
@@ -67,11 +71,11 @@ public class ElectricEel extends Hero {
     @Override public String getSkill1Name() { return "Magnetic Repulsion"; }
     @Override public String getSkill1Icon() { return "🧲"; }
     @Override public String getSkill1Description() {
-        return "ปล่อยคลื่นแม่เหล็กรอบตัว ดาเมจ 2 หน่วย ผลักทุกตัวไปทางที่ปลาหันอยู่ไกล 450 px ชนขอบจอ/ศัตรูอื่นโดนอีก 2 ดาเมจ"; }
+        return "ปล่อยคลื่นแม่เหล็ก 1 ลูกพุ่งออกไปทางที่ปลาหัน ศัตรูที่คลื่นผ่านโดน 2 ดาเมจ ถูกผลักไกล 450 px ชนขอบจอ/ศัตรูอื่นโดนอีก 2 ดาเมจ"; }
 
-    @Override public String getSkill2Name() { return "Particle Accelerator Shot"; }
-    @Override public String getSkill2Icon() { return "⚛️"; }
-    @Override public String getSkill2Description() { return "กระสุนที่เร่งความเร็วตลอดทาง ยิ่งไกลยิ่งแรง 1 ถึง 4 ดาเมจ"; }
+    @Override public String getSkill2Name() { return "Laser Beam"; }
+    @Override public String getSkill2Icon() { return "🔆"; }
+    @Override public String getSkill2Description() { return "ยิงเลเซอร์ตรงไปข้างหน้า ระยะจำกัด ทะลุทุกตัวในแนว 3 ดาเมจ คูลดาวน์สั้น"; }
 
     @Override public String getUltimateName() { return "Railgun"; }
     @Override public String getUltimateIcon() { return "🚀"; }
@@ -89,42 +93,55 @@ public class ElectricEel extends Hero {
         final float cx = player.getX() + player.getWidth() / 2f;
         final float cy = player.getY() + player.getHeight() / 2f;
 
-        // ทุกตัวถูกผลักไปทิศเดียวกัน = ทิศที่ปลาหันอยู่ (ทิศจอยล่าสุด)
-        final float pushRad = (float) Math.toRadians(ctx.getPlayerAngle());
+        // คลื่นลูกเดียว พุ่งไปทิศที่ปลาหันอยู่ (ทิศจอยล่าสุด) ศัตรูที่คลื่นผ่านถูกผลักไปทิศเดียวกัน
+        final float angleDeg = ctx.getPlayerAngle();
+        final float pushRad = (float) Math.toRadians(angleDeg);
         final float pushX = (float) Math.cos(pushRad);
         final float pushY = (float) Math.sin(pushRad);
+        final float minCos = (float) Math.cos(Math.toRadians(WAVE_SPAN_DEG / 2f));
 
-        FieldView field = new FieldView(ctx.getContext(), cx, cy, pushX, pushY);
-        field.setLayoutParams(new FrameLayout.LayoutParams(
+        final WaveView wave = new WaveView(ctx.getContext(), cx, cy, angleDeg);
+        wave.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-        area.addView(field);
+        area.addView(wave);
+
+        final Set<SeaEnemy> alreadyHit = new HashSet<>();   // คลื่นลูกเดียว โดนตัวเดิมได้ครั้งเดียว
         ValueAnimator fx = ValueAnimator.ofFloat(0f, 1f);
-        fx.setDuration(380);
-        fx.setInterpolator(new DecelerateInterpolator());
-        fx.addUpdateListener(a -> field.setProgress((float) a.getAnimatedValue()));
+        fx.setDuration(WAVE_MS);
+        fx.setInterpolator(new LinearInterpolator());
+        fx.addUpdateListener(a -> {
+            if (!ctx.isGameRunning()) {
+                a.cancel();
+                return;
+            }
+            float p = (float) a.getAnimatedValue();
+            wave.setProgress(p);
+            float r = WAVE_RANGE * p;
+
+            for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+                SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
+                if (!enemy.isAlive || enemy.containerView == null || alreadyHit.contains(enemy)) continue;
+                View ev = enemy.containerView;
+                float dx = ev.getX() + ev.getWidth() / 2f - cx;
+                float dy = ev.getY() + ev.getHeight() / 2f - cy;
+                float dist = (float) Math.hypot(dx, dy);
+                // อยู่ในพัดของคลื่น (ซ้อนทับตัวปลาพอดีนับว่าโดน) และหน้าคลื่นเดินทางมาถึงตัวแล้ว
+                if (dist > 0.01f && (dx * pushX + dy * pushY) / dist < minCos) continue;
+                if (r + Math.max(ev.getWidth(), ev.getHeight()) / 2f < dist) continue;
+
+                alreadyHit.add(enemy);
+                enemy.takeDamage(REPEL_DAMAGE, false);
+                ctx.onHitEnemySuccess();
+                if (enemy.isAlive) knockBack(ctx, enemy, pushX, pushY);
+            }
+        });
         fx.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
-                removeFromParent(field);
+                removeFromParent(wave);
             }
         });
         fx.start();
-
-        for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
-            SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
-            if (!enemy.isAlive || enemy.containerView == null) continue;
-            View ev = enemy.containerView;
-            float ex = ev.getX() + ev.getWidth() / 2f;
-            float ey = ev.getY() + ev.getHeight() / 2f;
-            float dist = (float) Math.hypot(ex - cx, ey - cy);
-            if (dist > REPEL_RADIUS + Math.max(ev.getWidth(), ev.getHeight()) / 2f) continue;
-
-            enemy.takeDamage(REPEL_DAMAGE, false);
-            ctx.onHitEnemySuccess();
-            if (!enemy.isAlive) continue;
-
-            knockBack(ctx, enemy, pushX, pushY);
-        }
     }
 
     /** ผลักศัตรู 450 px ตามทิศ (dx,dy) ถ้าชนขอบจอหรือศัตรูตัวอื่นระหว่างทาง = โดนอีก 2 ดาเมจแล้วหยุด */
@@ -201,75 +218,35 @@ public class ElectricEel extends Hero {
         if (area == null || player == null) return;
 
         float rad = (float) Math.toRadians(ctx.getPlayerAngle());
-        final float dirX = (float) Math.cos(rad);
-        final float dirY = (float) Math.sin(rad);
-        final float startX = player.getX() + player.getWidth() / 2f + dirX * 50f;
-        final float startY = player.getY() + player.getHeight() / 2f + dirY * 50f;
+        float dirX = (float) Math.cos(rad);
+        float dirY = (float) Math.sin(rad);
+        float sx = player.getX() + player.getWidth() / 2f + dirX * 30f;
+        float sy = player.getY() + player.getHeight() / 2f + dirY * 30f;
+        float ex = sx + dirX * LASER_RANGE;
+        float ey = sy + dirY * LASER_RANGE;
 
-        final OrbView orb = new OrbView(ctx.getContext());
-        final int box = 120;
-        orb.setLayoutParams(new FrameLayout.LayoutParams(box, box));
-        orb.setX(startX - box / 2f);
-        orb.setY(startY - box / 2f);
-        area.addView(orb);
+        // เลเซอร์วาบแล้วจางหาย
+        final BeamView beam = new BeamView(ctx.getContext(), sx, sy, ex, ey, LASER_WIDTH);
+        beam.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        area.addView(beam);
+        beam.animate().alpha(0f).setStartDelay(60).setDuration(240)
+                .withEndAction(() -> removeFromParent(beam)).start();
 
-        final boolean[] landed = {false};
-        final long[] trailTimer = {0};   // เสกเงาไม่ถี่กว่า 40 ms
-        final float[] prevDist = {0f};
-
-        ValueAnimator anim = ValueAnimator.ofFloat(0f, 1f);
-        anim.setDuration(SHOT_MS);
-        anim.setInterpolator(new LinearInterpolator());
-        anim.addUpdateListener(animation -> {
-            if (landed[0]) return;
-            float t = animation.getAnimatedFraction();
-            float dist = SHOT_RANGE * t * t;       // เร่งความเร็วตลอดทาง
-            float charge = dist / SHOT_RANGE;      // 0..1 ยิ่งไกลยิ่งสว่าง/ใหญ่/แรง
-            orb.setCharge(charge);
-
-            // วิ่งหลายสิบ px ต่อเฟรม จึงไล่เช็กเป็นช่วงย่อยตลอดเส้นทางของเฟรมนี้ ไม่งั้นทะลุศัตรูไป
-            int sub = 4;
-            for (int s = 1; s <= sub && !landed[0]; s++) {
-                float d = prevDist[0] + (dist - prevDist[0]) * s / sub;
-                float px = startX + dirX * d;
-                float py = startY + dirY * d;
-                float orbR = 14f + 20f * (d / SHOT_RANGE);
-                for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
-                    SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
-                    if (!enemy.isAlive || enemy.containerView == null) continue;
-                    View ev = enemy.containerView;
-                    float ex = ev.getX() + ev.getWidth() / 2f;
-                    float ey = ev.getY() + ev.getHeight() / 2f;
-                    if (Math.hypot(ex - px, ey - py) <= orbR + Math.max(ev.getWidth(), ev.getHeight()) / 2f) {
-                        landed[0] = true;
-                        animation.cancel();
-                        int damage = SHOT_MIN_DAMAGE
-                                + Math.round((SHOT_MAX_DAMAGE - SHOT_MIN_DAMAGE) * (d / SHOT_RANGE));
-                        removeFromParent(orb);
-                        spawnImpact(area, px, py);
-                        enemy.takeDamage(damage);
-                        ctx.onHitEnemySuccess();
-                        break;
-                    }
-                }
+        // ทะลุทุกตัวที่อยู่ในแนวและในระยะ
+        for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+            SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
+            if (!enemy.isAlive || enemy.containerView == null) continue;
+            View ev = enemy.containerView;
+            float px = ev.getX() + ev.getWidth() / 2f;
+            float py = ev.getY() + ev.getHeight() / 2f;
+            float reach = LASER_WIDTH / 2f + Math.max(ev.getWidth(), ev.getHeight()) * 0.4f;
+            if (distanceToSegment(px, py, sx, sy, ex, ey) <= reach) {
+                spawnImpact(area, px, py);
+                enemy.takeDamage(LASER_DAMAGE);
+                ctx.onHitEnemySuccess();
             }
-            if (landed[0]) return;
-
-            prevDist[0] = dist;
-            orb.setX(startX + dirX * dist - box / 2f);
-            orb.setY(startY + dirY * dist - box / 2f);
-            // ท้ายกระสุนทิ้งเงาสว่าง ยิ่งเร็วยิ่งยาว
-            if (GhostPool.due(trailTimer)) {
-                spawnTrail(area, startX + dirX * dist, startY + dirY * dist, 10f + 26f * charge);
-            }
-        });
-        anim.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                removeFromParent(orb);
-            }
-        });
-        anim.start();
+        }
     }
 
     // =========================================================
@@ -408,14 +385,6 @@ public class ElectricEel extends Hero {
                 .withEndAction(() -> removeFromParent(ring)).start();
     }
 
-    /** เงาสว่างจางๆ ทิ้งไว้ตามเส้นทางกระสุน */
-    private static void spawnTrail(FrameLayout area, float cx, float cy, float size) {
-        // วงกลมจากกองที่ใช้ซ้ำ (ไม่สร้าง View ใหม่ทุกเฟรม)
-        GhostPool.ghosts(area).spark(cx, cy, (int) size, TRAIL_COLOR, 260);
-    }
-
-    private static final int TRAIL_COLOR = 0x6600E5FF;
-
     private static Paint stroke(int color, float width) {
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         p.setStyle(Paint.Style.STROKE);
@@ -425,22 +394,23 @@ public class ElectricEel extends Hero {
         return p;
     }
 
-    /** คลื่นแม่เหล็ก: วงขยายออกถึงรัศมี 220 px + เส้นแรงแม่เหล็กโค้งพุ่งออกรอบตัว */
-    private static class FieldView extends View {
-        private final Paint ring = stroke(Color.parseColor("#FF80D8FF"), 8f);
-        private final Paint lines = stroke(Color.parseColor("#FFB3E5FC"), 5f);
-        private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final float cx, cy;
-        private final float dirX, dirY;
+    /** คลื่นแม่เหล็กรูปพัด: ขอบคลื่นเป็นส่วนโค้งขยายออกไปทางทิศที่ปลาหัน ถึงระยะ WAVE_RANGE แล้วจาง */
+    private static class WaveView extends View {
+        private final Paint outer = stroke(Color.parseColor("#AA80D8FF"), 26f);
+        private final Paint mid = stroke(Color.parseColor("#FF40C4FF"), 12f);
+        private final Paint core = stroke(Color.WHITE, 5f);
+        private final RectF box = new RectF();
+        private final float cx, cy, startAngle;
         private float progress;
 
-        FieldView(Context c, float cx, float cy, float dirX, float dirY) {
+        WaveView(Context c, float cx, float cy, float angleDeg) {
             super(c);
             this.cx = cx;
             this.cy = cy;
-            this.dirX = dirX;
-            this.dirY = dirY;
-            fill.setColor(Color.parseColor("#2200B0FF"));
+            this.startAngle = angleDeg - WAVE_SPAN_DEG / 2f;
+            outer.setStrokeCap(Paint.Cap.BUTT);
+            mid.setStrokeCap(Paint.Cap.BUTT);
+            core.setStrokeCap(Paint.Cap.BUTT);
         }
 
         void setProgress(float p) {
@@ -450,65 +420,21 @@ public class ElectricEel extends Hero {
 
         @Override
         protected void onDraw(@NonNull Canvas canvas) {
-            float r = REPEL_RADIUS * progress;
+            float r = Math.max(1f, WAVE_RANGE * progress);
             int alpha = (int) (255 * (1f - progress * progress));
-            fill.setAlpha((int) (60 * (1f - progress)));
-            canvas.drawCircle(cx, cy, r, fill);
-            ring.setAlpha(alpha);
-            canvas.drawCircle(cx, cy, r, ring);
-
-            // เส้นแรงขนาน 5 เส้นพุ่งไปทางทิศที่ผลัก (ให้เห็นว่าศัตรูจะถูกผลักไปทางไหน)
-            lines.setAlpha(alpha);
-            float px = -dirY, py = dirX;   // แนวตั้งฉากกับทิศผลัก
-            for (int i = -2; i <= 2; i++) {
-                float off = i * r * 0.28f;
-                float x0 = cx + px * off + dirX * r * 0.15f;
-                float y0 = cy + py * off + dirY * r * 0.15f;
-                float len = r * (1.1f + 0.6f * progress);
-                canvas.drawLine(x0, y0, x0 + dirX * len, y0 + dirY * len, lines);
-            }
+            box.set(cx - r, cy - r, cx + r, cy + r);
+            outer.setAlpha(alpha * 2 / 3);
+            mid.setAlpha(alpha);
+            core.setAlpha(alpha);
+            canvas.drawArc(box, startAngle, WAVE_SPAN_DEG, false, outer);
+            canvas.drawArc(box, startAngle, WAVE_SPAN_DEG, false, mid);
+            canvas.drawArc(box, startAngle, WAVE_SPAN_DEG, false, core);
         }
     }
 
-    /** ลูกกระสุนอนุภาค: ยิ่งไกล (charge ใกล้ 1) ยิ่งใหญ่ ขาวสว่างขึ้น และมีวงแหวนพลังงานล้อมรอบ */
     // สีของลูกพลังงาน (ไล่สีจากกลางออกขอบ)
-    private static final int ORB_GLOW_IN = 0xCC00E5FF;
-    private static final int ORB_GLOW_OUT = 0x0000E5FF;
     private static final int CHARGE_ORB_IN = 0xEE80D8FF;
     private static final int CHARGE_ORB_OUT = 0x0000B0FF;
-
-    private static class OrbView extends View {
-        private final Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint core = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint halo = stroke(Color.parseColor("#AA80D8FF"), 4f);
-        private float charge = 0f;
-
-        OrbView(Context c) {
-            super(c);
-            core.setColor(Color.WHITE);
-            glow.setShader(new RadialGradient(0f, 0f, 1f, ORB_GLOW_IN, ORB_GLOW_OUT, Shader.TileMode.CLAMP));
-        }
-
-        void setCharge(float charge) {
-            this.charge = charge;
-            invalidate();
-        }
-
-        @Override
-        protected void onDraw(@NonNull Canvas canvas) {
-            float cx = getWidth() / 2f, cy = getHeight() / 2f;
-            float r = 14f + 20f * charge;
-            // วงเรืองแสง: ไล่สีรัศมี 1 สร้างครั้งเดียว แล้วขยายด้วย canvas.scale (ไม่สร้าง RadialGradient ใหม่ทุกเฟรม)
-            canvas.save();
-            canvas.translate(cx, cy);
-            canvas.scale(r * 2.4f, r * 2.4f);
-            canvas.drawCircle(0f, 0f, 1f, glow);
-            canvas.restore();
-            canvas.drawCircle(cx, cy, r * 0.7f, core);
-            halo.setAlpha((int) (80 + 175 * charge));
-            canvas.drawCircle(cx, cy, r * 1.3f, halo);
-        }
-    }
 
     /** ตอนชาร์จ Railgun: ลูกพลังงานหน้าตัวปลาโตขึ้น + เส้นเล็งตามทิศ (เล็งด้วยจอยสติ๊กได้ก่อนยิง) */
     private static class ChargeView extends View {
