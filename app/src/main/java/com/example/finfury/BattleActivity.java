@@ -11,6 +11,7 @@ import android.os.Looper;
 import android.view.Choreographer;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -1064,7 +1065,23 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
             case 4: heroDrawableId = R.drawable.hero_4; break;
             case 5: heroDrawableId = R.drawable.hero_5; break;
         }
-        if (imgPlayer != null) imgPlayer.setImageResource(heroDrawableId);
+        if (imgPlayer != null) {
+            imgPlayer.setImageResource(heroDrawableId);
+            // ภาพฮีโร่เป็นแคนวาสกว้าง 677x369 (hero_5 1698x926) ที่มีขอบโปร่งใสเยอะ เดิมยัดในกล่อง 70dp จัตุรัส
+            // ตัวปลาจริงเหลือแค่ ~25-60dp เล็กกว่าอีโมจิศัตรู: ตั้งความกว้างกล่องตามสัดส่วนตัวปลาในภาพแต่ละตัว
+            float widthDp = 120f;
+            switch (heroId) {
+                case 2: widthDp = 200f; break;   // ปักเป้า: ตัวปลาในภาพกว้างแค่ 38% ของแคนวาส
+                case 3: widthDp = 105f; break;   // ฉลาม: ตัวยาว
+                case 4: widthDp = 145f; break;   // หมึก
+                case 5: widthDp = 95f; break;    // ปลาไหล: ภาพเต็มแคนวาสอยู่แล้ว
+            }
+            float density = getResources().getDisplayMetrics().density;
+            ViewGroup.LayoutParams lp = imgPlayer.getLayoutParams();
+            lp.width = Math.round(widthDp * density);
+            lp.height = Math.round(widthDp * 0.545f * density);   // อัตราส่วนภาพ 369/677 = 926/1698
+            imgPlayer.setLayoutParams(lp);
+        }
         TextView txtPlayerName = findViewById(R.id.txtPlayerName);
         if (txtPlayerName != null && playerHero != null) txtPlayerName.setText(playerHero.getName());
         if (imgProfile != null) imgProfile.setImageResource(heroDrawableId);
