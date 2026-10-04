@@ -10,6 +10,7 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 import android.widget.VideoView;
 import androidx.activity.EdgeToEdge;
 import androidx.core.graphics.Insets;
@@ -156,15 +157,16 @@ public class MainActivity extends BaseActivity {
         // ==========================================
         // 🌀 3. จัดการปุ่มน้ำวน (หน้าเลือกด่าน)
         // ==========================================
-        // ปลดล็อกทุกด่านตั้งแต่เริ่ม: ปุ่มด่าน 1-5 ใช้ได้หมด และทำงานเหมือนกัน (ต่างกันแค่หมายเลขด่าน)
+        // ปลดล็อกทีละด่าน: เริ่มที่ด่าน 1 ผ่านด่านไหนแล้วด่านถัดไปถึงจะเปิด (ไอคอนอัปเดตใน updateStageLocks)
         int[] stageButtonIds = {R.id.btnStage1, R.id.btnStage2, R.id.btnStage3, R.id.btnStage4, R.id.btnStage5};
         for (int i = 0; i < stageButtonIds.length; i++) {
             final int stageId = i + 1;
             ImageButton btnStage = findViewById(stageButtonIds[i]);
-            btnStage.setEnabled(true);
-            // ด่าน 3-4 ในเลย์เอาต์ใช้ไอคอนกุญแจ จึงเปลี่ยนเป็นไอคอนน้ำวนปกติในโค้ด (ด่าน 5 คงรูปบอส)
-            if (stageId == 3 || stageId == 4) btnStage.setImageResource(R.drawable.ic_whirlpool_blue);
             btnStage.setOnClickListener(v -> {
+                if (stageId > GameProgress.getUnlockedStage(this)) {
+                    Toast.makeText(this, "ด่านนี้ยังล็อกอยู่ ผ่านด่าน " + (stageId - 1) + " ก่อน", Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 SoundManager.play(SoundManager.Sfx.BUTTON);
                 selectedStageId = stageId;
                 layoutLevelSelect.setVisibility(View.GONE);
@@ -215,6 +217,7 @@ public class MainActivity extends BaseActivity {
         super.onResume();
         SoundManager.playMusic(this, "bgm_menu");
         updateStageStars();
+        updateStageLocks();
 
         // กลับมาจากหน้าอื่น (เช่น ตั้งค่า): พื้นผิววิดีโอของ VideoView ถูกทำลายตอนออกจากหน้านี้
         // ถ้าไม่โหลดใหม่ พื้นหลังจะเป็นสีดำ จึงตั้งวิดีโอใหม่แล้วเล่นของหน้าที่แสดงอยู่
@@ -231,6 +234,21 @@ public class MainActivity extends BaseActivity {
     private void reloadVideo(VideoView video, int rawRes) {
         video.setVideoURI(Uri.parse("android.resource://" + getPackageName() + "/" + rawRes));
         video.start();
+    }
+
+    /** ด่านที่ยังไม่ปลดล็อกใช้ไอคอนกุญแจและจางลง ด่านที่เล่นได้ใช้ไอคอนปกติ (ด่าน 5 = บอส) */
+    private void updateStageLocks() {
+        int[] buttonIds = {R.id.btnStage1, R.id.btnStage2, R.id.btnStage3, R.id.btnStage4, R.id.btnStage5};
+        int[] openIcons = {R.drawable.ic_whirlpool_green, R.drawable.ic_whirlpool_blue,
+                R.drawable.ic_whirlpool_blue, R.drawable.ic_whirlpool_blue, R.drawable.ic_boss};
+        int unlocked = GameProgress.getUnlockedStage(this);
+        for (int i = 0; i < buttonIds.length; i++) {
+            ImageButton btn = findViewById(buttonIds[i]);
+            if (btn == null) continue;
+            boolean open = (i + 1) <= unlocked;
+            btn.setImageResource(open ? openIcons[i] : R.drawable.ic_whirlpool_lock);
+            btn.setAlpha(open ? 1f : 0.6f);
+        }
     }
 
     /** ดาวที่ดีที่สุดของแต่ละด่านใต้ปุ่มด่านในหน้าเลือกด่าน */
