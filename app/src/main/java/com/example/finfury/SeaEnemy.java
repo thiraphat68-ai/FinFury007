@@ -144,6 +144,13 @@ public class SeaEnemy {
     private float aimDirX = 1f;
     private float aimDirY = 0f;
 
+    /** สไตล์การเดินตอนรอโจมตี (ต่างกันตามชนิดศัตรู) */
+    private enum MoveStyle { ORBIT, SIDESTEP, DRIFT, PATROL, KITE, ERRATIC }
+    private MoveStyle moveStyle = MoveStyle.ORBIT;
+    private float wanderX = 0f, wanderY = 0f;
+    private long wanderUntilMs = 0;
+    private static final long APPROACH_BEFORE_ATTACK_MS = 1200;   // ก่อนโจมตีเท่านี้ กลับเข้าประชิดผู้เล่น
+
     private static final float BASE_SPEED = BattleActivity.MAX_SPEED * 0.75f;
     private static final float ORBIT_SPEED_FACTOR = 0.60f;                      // ความเร็วตอนล้อมผู้เล่น = 60% ของความเร็วเดิน (ต้องเร็วพอตามช่องที่หมุน+ซิกแซกทัน)
     private static final float BASE_DASH_SPEED = BattleActivity.MAX_SPEED * 10f; // ความเร็วพุ่ง = 1000% ของผู้เล่น
@@ -232,6 +239,76 @@ public class SeaEnemy {
         return Math.PI * 2 * idx / Math.max(1, n) + slotOffset;
     }
 
+    /** จุดที่ศัตรูจะเดินไปหาตอนรอโจมตี ตามสไตล์การเดิน */
+    private float[] computeHoldPoint(float targetX, float targetY, float curX, float curY,
+                                     float distance, float tSec, long now) {
+        float mid = (holdMinDistance + holdMaxDistance) / 2f;
+        float baseAngle = (float) (slotAngle() + ORBIT_ROTATE_RAD_PER_S * tSec);
+        boolean approaching = timeInOrbitMs >= attackIntervalMs - WINDUP_MS - APPROACH_BEFORE_ATTACK_MS;
+
+        float angle = baseAngle;
+        float dist = mid;
+        switch (moveStyle) {
+            case SIDESTEP:   // ปู: ก้าวข้างไปมาแทนการวนรอบ
+                angle = (float) slotAngle() + (float) Math.sin(tSec * 1.1f + zigPhase) * 0.9f;
+                dist = mid + triangleWave(tSec * 1.6f + zigPhase) * 25f;
+                break;
+            case DRIFT: {    // แมงกะพรุน: ลอยขึ้นลงเป็นคลื่นกว้าง ระยะเข้า-ออกช้าๆ
+                dist = mid + (float) Math.sin(tSec * 0.9f + zigPhase) * (holdMaxDistance - holdMinDistance + 60f);
+                float bob = (float) Math.sin(tSec * 2.2f + zigPhase) * 70f;
+                float hx = targetX + (float) Math.cos(baseAngle) * dist;
+                float hy = targetY + (float) Math.sin(baseAngle) * dist + bob;
+                return new float[]{hx, hy};
+            }
+            case KITE: {     // หมึก: ผู้เล่นเข้าใกล้เกิน ถอยตรงข้าม ไม่งั้นลอยวนช้าๆ ที่ระยะไกล
+                if (distance < holdMinDistance && distance > 0.001f) {
+                    float fx = curX + (curX - targetX) / distance * 260f;
+                    float fy = curY + (curY - targetY) / distance * 260f;
+                    return new float[]{fx, fy};
+                }
+                dist = mid + triangleWave(tSec * ZIGZAG_FREQ + zigPhase) * 25f;
+                break;
+            }
+            case PATROL:     // เต่า: ตระเวนไปจุดสุ่มบนแมพ แล้วค่อยกลับมาหาผู้เล่นตอนใกล้โจมตี
+            case ERRATIC: {  // ดาวทะเล: เปลี่ยนจุดสุ่มรอบผู้เล่นถี่ๆ ทิศไม่แน่นอน
+                if (approaching) break;
+                if (now >= wanderUntilMs || Math.hypot(wanderX - curX, wanderY - curY) < 40f) {
+                    pickWanderPoint(targetX, targetY, now);
+                }
+                return new float[]{wanderX, wanderY};
+            }
+            case ORBIT:
+            default: {
+                float zig = triangleWave(tSec * ZIGZAG_FREQ + zigPhase);
+                dist = mid + zig * ZIGZAG_AMPLITUDE;
+                break;
+            }
+        }
+        dist = Math.max(holdMinDistance, Math.min(holdMaxDistance, dist));
+        return new float[]{targetX + (float) Math.cos(angle) * dist, targetY + (float) Math.sin(angle) * dist};
+    }
+
+    private void pickWanderPoint(float targetX, float targetY, long now) {
+        View area = containerView != null ? (View) containerView.getParent() : null;
+        float aw = area != null && area.getWidth() > 0 ? area.getWidth() : 1000f;
+        float ah = area != null && area.getHeight() > 0 ? area.getHeight() : 500f;
+        float maxX = Math.max(0f, aw - (containerView != null ? containerView.getWidth() : 0));
+        float maxY = Math.max(0f, ah - (containerView != null ? containerView.getHeight() : 0));
+        if (moveStyle == MoveStyle.ERRATIC) {
+            double a = Math.random() * Math.PI * 2;
+            float r = holdMinDistance + (float) Math.random() * (holdMaxDistance - holdMinDistance + 150f);
+            wanderX = targetX + (float) Math.cos(a) * r;
+            wanderY = targetY + (float) Math.sin(a) * r;
+            wanderUntilMs = now + 900 + (long) (Math.random() * 1200);
+        } else {
+            wanderX = (float) Math.random() * maxX;
+            wanderY = (float) Math.random() * maxY;
+            wanderUntilMs = now + 2500 + (long) (Math.random() * 2500);
+        }
+        wanderX = Math.max(0f, Math.min(maxX, wanderX));
+        wanderY = Math.max(0f, Math.min(maxY, wanderY));
+    }
+
     /** คลื่นสามเหลี่ยม -1..1 (เส้นตรงสลับขึ้น-ลง = ซิกแซกคม ต่างจากไซน์ที่โค้งนุ่ม) */
     private static float triangleWave(float x) {
         return (float) (2.0 / Math.PI * Math.asin(Math.sin(x)));
@@ -308,46 +385,51 @@ public class SeaEnemy {
     protected void configureEnemyStats() {
         if (emoji.contains("🦀") || name.contains("ปู")) {
             // ปูซ่า: เลือดเยอะ ช้า
-            maxHp = 14;
-            hp = 14;
+            maxHp = 16;
+            hp = 16;
             speedMultiplier = 0.85f;
             holdMinDistance = 160f;
             holdMaxDistance = 240f;
             attackDamage = 6;
+            moveStyle = MoveStyle.SIDESTEP;
         } else if (emoji.contains("🦑") || name.contains("หมึก")) {
             // หมึกยักษ์: วิ่งเร็ว วนใกล้ ดุดัน
-            maxHp = 11;
-            hp = 11;
+            maxHp = 12;
+            hp = 12;
             speedMultiplier = 1.25f;
             holdMinDistance = 420f;
             holdMaxDistance = 500f;  // ต้องน้อยกว่าระยะกรวยหมึก x0.9 (RangedAttacks.INK_RANGE) เพื่อให้กรวยถึงตัวผู้เล่น
             attackDamage = 5;
             attackType = AttackType.INK_CONE;
+            moveStyle = MoveStyle.KITE;
         } else if (emoji.contains("🐢") || name.contains("เต่า")) {
             // เต่าทะเล: เลือดเยอะที่สุด วนไกล เดินช้า
-            maxHp = 16;
-            hp = 16;
+            maxHp = 18;
+            hp = 18;
             speedMultiplier = 0.85f;
             holdMinDistance = 240f;
             holdMaxDistance = 340f;
             attackDamage = 5;
+            moveStyle = MoveStyle.PATROL;
         } else if (emoji.contains("🪼") || name.toLowerCase(Locale.US).contains("jellyfish") || name.contains("กะพรุน")) {
             // แมงกะพรุน: ความเร็วปกติ รักษาระยะห่าง 240px
-            maxHp = 10;
-            hp = 10;
+            maxHp = 9;
+            hp = 9;
             speedMultiplier = 1.0f;
             holdMinDistance = 180f;   // เข้าหาผู้เล่นใกล้กว่าเดิม (เดิม 320-360)
             holdMaxDistance = 220f;
             attackDamage = 4;
             attackType = AttackType.LINE_SHOT;
+            moveStyle = MoveStyle.DRIFT;
         } else {
             // ดาวทะเล หรืออื่นๆ: สเตตัสสมดุล
-            maxHp = 10;
-            hp = 10;
+            maxHp = 11;
+            hp = 11;
             speedMultiplier = 1.0f;
             holdMinDistance = 200f;
             holdMaxDistance = 320f;
             attackDamage = 5;
+            moveStyle = MoveStyle.ERRATIC;
         }
     }
 
@@ -497,19 +579,16 @@ public class SeaEnemy {
             case ORBIT_AND_WAIT: {
                 timeInOrbitMs += dtMs;
 
-                // 1. ล้อมผู้เล่น: ศัตรูแต่ละตัวได้ช่องบนวงรอบผู้เล่น (แบ่งมุมเท่าๆ กัน) วงหมุนช้าๆ ตลอดเวลา
-                // และแต่ละตัวพุ่งเข้า-ออกรัศมีแบบซิกแซกไม่หยุดนิ่ง อยู่ไกลเกินวงให้วิ่งเข้าหาด้วยความเร็วปกติ
-                float orbitSpeed = (distance > holdMaxDistance + 60f) ? moveSpeed : moveSpeed * ORBIT_SPEED_FACTOR;
+                // 1. เดินตามสไตล์ของแต่ละชนิด (ปู=ก้าวข้าง, แมงกะพรุน=ลอยเป็นคลื่น, เต่า=ตระเวนสุ่ม,
+                // หมึก=ถอยเว้นระยะ, ดาวทะเล=สุ่มเปลี่ยนจุดไม่แน่นอน) แล้วค่อยกลับมาประชิดตอนใกล้ถึงเวลาโจมตี
                 float tSec = now / 1000f;
-                double angle = slotAngle() + ORBIT_ROTATE_RAD_PER_S * tSec;
-                float zig = triangleWave(tSec * ZIGZAG_FREQ + zigPhase);
-                float holdDist = (holdMinDistance + holdMaxDistance) / 2f + zig * ZIGZAG_AMPLITUDE;
-                holdDist = Math.max(holdMinDistance, Math.min(holdMaxDistance, holdDist));
-                float holdX = targetX + (float) Math.cos(angle) * holdDist;
-                float holdY = targetY + (float) Math.sin(angle) * holdDist;
+                float[] hold = computeHoldPoint(targetX, targetY, currentX, currentY, distance, tSec, now);
+                float orbitSpeed = (distance > holdMaxDistance + 60f && moveStyle != MoveStyle.PATROL
+                        && moveStyle != MoveStyle.ERRATIC) ? moveSpeed : moveSpeed * ORBIT_SPEED_FACTOR;
+                if (moveStyle == MoveStyle.KITE && distance < holdMinDistance) orbitSpeed = moveSpeed;   // ถอยหนีเต็มสปีด
 
-                float hdx = holdX - currentX;
-                float hdy = holdY - currentY;
+                float hdx = hold[0] - currentX;
+                float hdy = hold[1] - currentY;
                 float hdist = (float) Math.hypot(hdx, hdy);
                 if (hdist > 0.001f) {
                     float step = Math.min(orbitSpeed * dt, hdist);

@@ -28,6 +28,13 @@ import androidx.annotation.NonNull;
  *                                         ดาเมจ 8 + สตัน 2 วินาที ยิงครั้งเดียว เล็งพลาดคือเสียเปล่า
  */
 public class ElectricEel extends Hero {
+    // ---- สเตตัสพื้นฐาน (สมดุล) ----
+    @Override public int getMaxHp() { return 85; }
+    @Override public float getBaseSpeedMultiplier() { return 1.1f; }
+    @Override public int getStackNeeded() { return 9; }
+    @Override public long getSkill1CooldownMs() { return 2000; }
+    @Override public long getSkill2CooldownMs() { return 5000; }
+
 
     // ---------- Skill 1: Magnetic Repulsion ----------
     private static final float REPEL_RADIUS = 220f;

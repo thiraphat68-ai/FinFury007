@@ -23,6 +23,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Pufferfish extends Hero {
+    // ---- สเตตัสพื้นฐาน (สมดุล) ----
+    @Override public int getMaxHp() { return 150; }
+    @Override public float getBaseSpeedMultiplier() { return 0.8f; }
+    @Override public int getStackNeeded() { return 8; }
+    @Override public long getSkill1CooldownMs() { return 3000; }
+    @Override public long getSkill2CooldownMs() { return 6000; }
+
 
     // ---------- Ultimate: พองตัวดูดศัตรูทุกตัวที่อยู่ในระยะเข้าปาก ----------
     private static final float SUCK_RANGE = 380f;          // px รัศมีวงเล็ง

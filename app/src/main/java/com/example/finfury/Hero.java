@@ -12,6 +12,22 @@ public abstract class Hero {
     public String getName() { return name; }
     public String getSubject() { return subject; }
 
+    // ---------------------------------------------------------
+    // สเตตัสพื้นฐาน (ฮีโร่แต่ละตัว override ให้ต่างกัน)
+    // ---------------------------------------------------------
+    /** เลือดสูงสุด */
+    public int getMaxHp() { return 100; }
+
+    /** ตัวคูณความเร็วเดินพื้นฐาน (1.0 = ปกติ) */
+    public float getBaseSpeedMultiplier() { return 1f; }
+
+    /** จำนวนฮิตที่ต้องสะสมจนสแตกเต็มและขึ้นควิซ */
+    public int getStackNeeded() { return 10; }
+
+    /** คูลดาวน์ Skill 1 / Skill 2 (มิลลิวินาที) ก่อนคูณตัวลดคูลดาวน์ของสกิล */
+    public long getSkill1CooldownMs() { return 500; }
+    public long getSkill2CooldownMs() { return 500; }
+
     /** สกิล 1 (ปุ่ม Skill 1) */
     public abstract void useSkill1(BattleContext ctx);
 

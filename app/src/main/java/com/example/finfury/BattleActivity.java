@@ -59,9 +59,10 @@ public class BattleActivity extends BaseActivity implements BattleContext {
     private int currentStageId = 1;
     private StageConfig stageConfig = StageConfig.forStage(1);
     private int playerHp = 100;
-    private final int maxPlayerHp = 100;
+    private int maxPlayerHp = 100;   // ตั้งตามฮีโร่ตอน onCreate
     private int currentStack = 0;
-    private static final int MAX_STACK = 10;
+    private int maxStack = 10;       // ตั้งตามฮีโร่ตอน onCreate
+    private float heroBaseSpeed = 1f;
     private static final int MAX_STAGES = 5;
 
     // ดีบัฟลดพลัง Ultimate (ด่าน 3-4): ถูกตีครบทุก 2 ครั้ง ได้พลังต่อฮิต 70% นาน 8 วินาที
@@ -285,6 +286,10 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         currentStageId = getIntent().getIntExtra("STAGE_ID", 1);
         stageConfig = StageConfig.forStage(currentStageId);
         playerHero = HeroFactory.createHero(currentHeroId);
+        maxPlayerHp = playerHero.getMaxHp();
+        playerHp = maxPlayerHp;
+        maxStack = playerHero.getStackNeeded();
+        heroBaseSpeed = playerHero.getBaseSpeedMultiplier();
         setupQuiz();
         setupStageBackground(currentStageId);
 
@@ -296,7 +301,7 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         stackProgressBar = findViewById(R.id.barStack);
         txtStackGauge = findViewById(R.id.txtStackCount);
 
-        if (stackProgressBar != null) stackProgressBar.setMax(MAX_STACK);
+        if (stackProgressBar != null) stackProgressBar.setMax(maxStack);
         if (barPlayerHp != null) {
             barPlayerHp.setMax(maxPlayerHp);
             barPlayerHp.setProgress(playerHp);
@@ -368,7 +373,7 @@ public class BattleActivity extends BaseActivity implements BattleContext {
             btnSkill1.setOnClickListener(v -> {
                 if (!canUseSkill()) return;
                 SoundManager.play(SoundManager.Sfx.SKILL1);
-                startCooldownUI(btnSkill1, skill1Label);
+                startCooldownUI(btnSkill1, skill1Label, playerHero.getSkill1CooldownMs());
                 animateButton(btnSkill1);
                 playerHero.useSkill1(this);
             });
@@ -377,7 +382,7 @@ public class BattleActivity extends BaseActivity implements BattleContext {
             btnSkill2.setOnClickListener(v -> {
                 if (!canUseSkill()) return;
                 SoundManager.play(SoundManager.Sfx.SKILL2);
-                startCooldownUI(btnSkill2, skill2Label);
+                startCooldownUI(btnSkill2, skill2Label, playerHero.getSkill2CooldownMs());
                 animateButton(btnSkill2);
                 playerHero.useSkill2(this);
             });
@@ -480,7 +485,7 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         } else if (stunImmuneMs > 0f) {
             stunImmuneMs = Math.max(0f, stunImmuneMs - dt * 1000f);
         }
-        float effSpeed = speedMultiplier * slowFactor;
+        float effSpeed = heroBaseSpeed * speedMultiplier * slowFactor;
         float targetVx = (skillLock || stunned) ? 0f : moveX * MAX_SPEED * effSpeed;
         float targetVy = (skillLock || stunned) ? 0f : moveY * MAX_SPEED * effSpeed;
         velX += (targetVx - velX) * k;
@@ -568,10 +573,10 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         enemyList.add(new SeaEnemy(this, "Starfish", "⭐️", width * 0.65f, height * 0.85f, stageConfig));
     }
 
-    private void startCooldownUI(Button btn, String originalText) {
+    private void startCooldownUI(Button btn, String originalText, long baseMs) {
         if (btn == null) return;
         btn.setEnabled(false);
-        new CountDownTimer((long) (500 * cooldownMultiplier), 100) {
+        new CountDownTimer((long) (baseMs * cooldownMultiplier), 100) {
             @Override
             public void onTick(long millisUntilFinished) {
                 btn.setText(String.format(Locale.US, "%.1f", millisUntilFinished / 1000.0f));
@@ -589,15 +594,15 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         // ด่านจบแล้ว (ชนะ/แพ้) หรือไม่มีศัตรูเหลือ: ไม่เพิ่มสแตก ไม่เปิดโจทย์
         if (!isGameRunning || !anyEnemyAlive()) return;
 
-        if (currentStack < MAX_STACK) {
+        if (currentStack < maxStack) {
             // ติดดีบัฟ: ได้พลังต่อฮิตน้อยลง (เช่น 0.7) เศษสะสมไว้จนครบ 1 ถึงขึ้นสแตก
             stackFraction += ultDebuffRemainingMs > 0f ? stageConfig.ultGainFactor : 1f;
             int gained = (int) stackFraction;
             if (gained <= 0) return;
             stackFraction -= gained;
-            currentStack = Math.min(MAX_STACK, currentStack + gained);
+            currentStack = Math.min(maxStack, currentStack + gained);
             updateStackUI();
-            if (currentStack >= MAX_STACK) quizManager.show();
+            if (currentStack >= maxStack) quizManager.show();
         }
     }
 
@@ -634,7 +639,7 @@ public class BattleActivity extends BaseActivity implements BattleContext {
         if (currentStageId >= ENERGY_DRAIN_FROM_STAGE && playerHp > 0
                 && hitsTaken % ENERGY_DRAIN_EVERY_HITS == 0
                 && !ultimateReady && !ultimateRunning && !quizManager.isShowing()) {
-            int drain = Math.round(MAX_STACK * ENERGY_DRAIN_PERCENT / 100f);
+            int drain = Math.round(maxStack * ENERGY_DRAIN_PERCENT / 100f);
             currentStack = Math.max(0, currentStack - drain);
             stackFraction = 0f;
             updateStackUI();
@@ -774,7 +779,7 @@ public class BattleActivity extends BaseActivity implements BattleContext {
      * (สแตกเต็มค้างอยู่ และยังไม่ได้ตอบ/ยังไม่ปลดล็อก ULT) ไม่งั้นสแตกเต็มแล้วโจทย์จะไม่ขึ้นอีกเลย
      */
     private void openPendingQuiz() {
-        if (currentStack >= MAX_STACK && !ultimateReady && !ultimateRunning && !quizManager.isShowing()) {
+        if (currentStack >= maxStack && !ultimateReady && !ultimateRunning && !quizManager.isShowing()) {
             quizManager.show();
         }
     }
@@ -963,7 +968,7 @@ public class BattleActivity extends BaseActivity implements BattleContext {
     private void updateStackUI() {
         if (stackProgressBar != null) stackProgressBar.setProgress(currentStack);
         if (txtStackGauge != null && playerHero != null) {
-            txtStackGauge.setText(playerHero.getName() + " | Stack: " + currentStack + "/" + MAX_STACK);
+            txtStackGauge.setText(playerHero.getName() + " | Stack: " + currentStack + "/" + maxStack);
         }
     }
 

@@ -6,14 +6,14 @@ import android.view.View;
 import android.widget.FrameLayout;
 
 /**
- * Mega Boss ด่าน 5: Kraken ตัวใหญ่ 4 เท่า 2 ชีวิต (ชีวิตแรกเลือด 80, เฟส 2 เลือด 30)
+ * Mega Boss ด่าน 5: Kraken ตัวใหญ่ 4 เท่า 2 ชีวิต (ชีวิตแรกเลือด 100, เฟส 2 เลือด 30)
  * - ปกติยืนนิ่งอยู่กลางจอด้านขวา: ปล่อยคลื่นพลังเป็นชุด (ไม่มีการโจมตีระยะประชิดแล้ว)
  * - บอสไม่เคลื่อนที่ ยืนอยู่กับที่ตลอด แต่โจมตีถี่
  * - ไม่โดนสตัน/สโลว์/กลืน/ผลักถอย
  */
 public class KrakenBoss extends SeaEnemy {
 
-    private static final int BOSS_HP = 80;
+    private static final int BOSS_HP = 100;
     private static final int MAX_LIVES = 2;
     private static final int PHASE2_HP = 30;
 
