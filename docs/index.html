@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>Fin &amp; Fury</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0A0E1A">
+  <meta name="apple-mobile-web-app-title" content="Fin &amp; Fury">
+  <meta name="application-name" content="Fin &amp; Fury">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
+  <link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- background videos (behind the transparent Phaser canvas); shown/hidden by js/core/background.js -->
+  <video id="videoMenu" class="bg-video hidden" src="assets/video/bg_menu.mp4" muted loop playsinline webkit-playsinline preload="auto"></video>
+  <video id="videoLevel" class="bg-video hidden" src="assets/video/bg_level.mp4" muted loop playsinline webkit-playsinline preload="auto"></video>
+
+  <!-- game canvas container: inset by the iOS safe area so nothing hides under the notch / home bar -->
+  <div id="game"></div>
+
+  <!-- shown only in portrait -->
+  <div id="rotate-overlay" role="alert">
+    <div class="rotate-box">
+      <div class="rotate-icon">&#128241;</div>
+      <div class="rotate-text">Please rotate your phone</div>
+      <div class="rotate-sub">กรุณาหมุนโทรศัพท์เป็นแนวนอน</div>
+    </div>
+  </div>
+
+  <noscript>This game needs JavaScript.</noscript>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
