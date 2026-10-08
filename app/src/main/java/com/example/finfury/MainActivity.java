@@ -212,6 +212,12 @@ public class MainActivity extends BaseActivity {
             }
         });
 
+        // ปุ่มการทดสอบตอบคำถาม (ตอบคำถามอย่างเดียว ไม่เล่นเกม)
+        findViewById(R.id.btnQuizPractice).setOnClickListener(v -> {
+            SoundManager.play(SoundManager.Sfx.BUTTON);
+            startActivity(new Intent(MainActivity.this, QuizSubjectActivity.class));
+        });
+
         // ปุ่มตั้งค่าในเมนูหลัก
         findViewById(R.id.btnSettings).setOnClickListener(v -> {
             SoundManager.play(SoundManager.Sfx.BUTTON);

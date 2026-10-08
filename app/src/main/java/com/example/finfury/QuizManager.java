@@ -58,13 +58,16 @@ public class QuizManager {
     private static final long FEEDBACK_MS = 2000;
     private static final int BAR_MAX = 1000;
 
-    private static final int COLOR_OPTION = Color.parseColor("#2C3E50");
-    private static final int COLOR_CORRECT = Color.parseColor("#27AE60");
-    private static final int COLOR_WRONG = Color.parseColor("#C0392B");
+    private static final int COLOR_TITLE = Color.parseColor("#00ADB5");
+    private static final int COLOR_REVIVE_TITLE = Color.parseColor("#E74C3C");
+    static final int COLOR_OPTION = Color.parseColor("#2C3E50");
+    static final int COLOR_CORRECT = Color.parseColor("#27AE60");
+    static final int COLOR_WRONG = Color.parseColor("#C0392B");
 
     private final String title;
     private final List<QuizQuestion> bank;
     private final Listener listener;
+    private Listener activeListener;   // listener ของรอบที่กำลังแสดง (ปกติ = listener, โหมดฟื้นคืนชีพ = ตัวที่ส่งเข้า showRevive)
 
     private final View overlay;
     private final TextView txtTitle;
@@ -96,6 +99,7 @@ public class QuizManager {
         this.title = title;
         this.bank = bank;
         this.listener = listener;
+        this.activeListener = listener;
 
         layoutContent = overlay.findViewById(R.id.layoutQuizContent);
         txtCountdown = overlay.findViewById(R.id.txtQuizCountdown);
@@ -158,12 +162,29 @@ public class QuizManager {
         if (bank.isEmpty() || isShowing()) return;
         if (gate != null && !gate.canShow()) return;   // ด่านจบแล้ว หรือมี overlay อื่นเปิดอยู่: ไม่เปิดโจทย์
 
-        listener.onQuizShown();
+        present(listener, String.format(Locale.US, "%s Quiz", title), COLOR_TITLE);
+    }
+
+    /**
+     * โหมดฟื้นคืนชีพ: โจทย์ข้อเดียวจากชุดเดิม ข้ามประตู (Gate) เพราะเกมหยุดไปแล้วตอนผู้เล่นตาย
+     * ผลถูก/ผิด/หมดเวลาแจ้งกลับผ่าน reviveListener แทน listener ปกติ (โจทย์สแตกเต็มไม่ได้รับผลกระทบ)
+     * ถ้ามีโจทย์เปิดอยู่จะถูกปิดก่อนโดยไม่เรียก listener ใด ๆ
+     */
+    public void showRevive(String reviveTitle, Listener reviveListener) {
+        if (bank.isEmpty()) return;
+        if (isShowing()) dismiss();
+        present(reviveListener, reviveTitle, COLOR_REVIVE_TITLE);
+    }
+
+    private void present(Listener l, String titleText, int titleColor) {
+        activeListener = l;
+        activeListener.onQuizShown();
 
         current = bank.get(nextQuestionIndex());
         answered = false;
 
-        txtTitle.setText(String.format(Locale.US, "%s Quiz", title));
+        txtTitle.setText(titleText);
+        txtTitle.setTextColor(titleColor);
         showQuestionText(current.question);
         txtFeedback.setVisibility(View.GONE);
         for (int i = 0; i < optionButtons.length; i++) {
@@ -286,9 +307,9 @@ public class QuizManager {
         pendingClose = () -> {
             pendingClose = null;
             overlay.setVisibility(View.GONE);
-            if (correct) listener.onCorrect();
-            else if (timedOut) listener.onTimeout();
-            else listener.onWrong();
+            if (correct) activeListener.onCorrect();
+            else if (timedOut) activeListener.onTimeout();
+            else activeListener.onWrong();
         };
         handler.postDelayed(pendingClose, FEEDBACK_MS);
     }

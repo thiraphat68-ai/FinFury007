@@ -52,6 +52,14 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
     private static final float STUN_IMMUNE_AFTER_MS = 1500f;
     private static final long HIT_INVULN_MS = 350;
     private long lastDamageMs = 0;
+
+    // ตอบคำถามเพื่อฟื้นคืนชีพ: ตายครั้งแรกของด่านต้องตอบโจทย์ก่อนขึ้นหน้าแพ้ ถูก = ฟื้นด้วยเลือด 50%
+    private static final float REVIVE_HP_RATIO = 0.5f;
+    private static final long REVIVE_INVULN_MS = 2000;   // อมตะหลังฟื้น (กะพริบ)
+    private static final long REVIVE_BLINK_MS = 120;
+    private boolean reviveUsed = false;     // ฟื้นได้ครั้งเดียวต่อรอบของด่าน (recreate() ตอนเล่นใหม่ = รีเซ็ตเอง)
+    private boolean reviveActive = false;   // กำลังขึ้นโจทย์ฟื้นคืนชีพ (ห้ามปิดโจทย์ ห้ามเปิดเมนูหยุด)
+    private Runnable reviveBlinkRunnable;
     private float speedMultiplier = 1f;     // สกิลที่เพิ่มความเร็ว (เช่น Blood Frenzy)
     private float cooldownMultiplier = 1f;   // สกิลที่ลดคูลดาวน์
     static final float MAX_SPEED = 700f;
@@ -706,8 +714,11 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
             stackFraction = 0f;
             updateStackUI();
         }
-        // HP หมด = เสียงแพ้แทนเสียงโดนตี
-        SoundManager.play(playerHp <= 0 ? SoundManager.Sfx.LOSE : SoundManager.Sfx.PLAYER_HURT);
+        // HP หมด = เสียงแพ้แทนเสียงโดนตี (ยกเว้นยังมีสิทธิ์ฟื้นคืนชีพ ให้รอผลโจทย์ก่อน)
+        boolean dead = playerHp <= 0;
+        boolean winsFirst = dead && allEnemiesDefeated();
+        boolean canRevive = dead && !winsFirst && !reviveUsed;
+        SoundManager.play(dead && !canRevive ? SoundManager.Sfx.LOSE : SoundManager.Sfx.PLAYER_HURT);
 
         if (playerContainer != null) {
             playerContainer.setAlpha(0.5f);
@@ -716,10 +727,105 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
             }, 100);
         }
 
-        if (playerHp <= 0) {
+        if (winsFirst) {
+            checkWinCondition();   // ศัตรูตัวสุดท้ายตายพร้อมกัน: ชนะก่อน ไม่ขึ้นโจทย์ฟื้นคืนชีพ
+        } else if (canRevive) {
+            startReviveQuiz();
+        } else if (dead) {
             isGameRunning = false;
             showResultOverlay(false, 0);
         }
+    }
+
+    // =========================================================
+    // ตอบคำถามเพื่อฟื้นคืนชีพ (ใช้ QuizManager ตัวเดิมในโหมด revive)
+    // =========================================================
+    private void startReviveQuiz() {
+        reviveUsed = true;
+        reviveActive = true;
+        isGameRunning = false;   // หยุดเกม: ไม่รับดาเมจ ไม่ชนะซ้อน ลูปเฟรมหยุด (ค่อยเริ่มใหม่ตอนฟื้น)
+        isGamePaused = true;
+        resetJoystick();
+        overlayPause.setVisibility(View.GONE);   // quizManager.showRevive ปิดโจทย์สแตกเต็มที่เปิดค้างอยู่ให้เอง
+        String title = String.format(Locale.US, "ตอบถูกเพื่อฟื้นคืนชีพ (เลือด %d%%)", Math.round(REVIVE_HP_RATIO * 100));
+        quizManager.showRevive(title, new QuizManager.Listener() {
+            @Override
+            public void onQuizShown() {
+                SoundManager.play(SoundManager.Sfx.QUIZ_SHOW);
+            }
+
+            @Override
+            public void onCorrect() {
+                reviveActive = false;
+                if (isFinishing()) return;
+                SoundManager.play(SoundManager.Sfx.QUIZ_CORRECT);
+                revivePlayer();
+            }
+
+            @Override
+            public void onWrong() {
+                failRevive();
+            }
+
+            @Override
+            public void onTimeout() {
+                failRevive();
+            }
+        });
+    }
+
+    private void failRevive() {
+        reviveActive = false;
+        if (isFinishing()) return;
+        SoundManager.play(SoundManager.Sfx.QUIZ_WRONG);
+        showResultOverlay(false, 0);
+    }
+
+    private void revivePlayer() {
+        playerHp = Math.max(1, (int) Math.ceil(maxPlayerHp * REVIVE_HP_RATIO));
+        if (barPlayerHp != null) barPlayerHp.setProgress(playerHp);
+        updateHpUI();
+
+        // อมตะ ~2 วินาที: เลื่อนเวลาโดนตีล่าสุดไปข้างหน้าให้ช่วงกันดาเมจของ damagePlayer ยาวเท่า REVIVE_INVULN_MS
+        lastDamageMs = System.currentTimeMillis() + REVIVE_INVULN_MS - HIT_INVULN_MS;
+        startReviveBlink();
+
+        isGameRunning = true;
+        isGamePaused = false;
+        lastFrameNs = 0;
+        Choreographer.getInstance().removeFrameCallback(frameCallback);
+        startGameLoop();
+        checkWinCondition();         // ศัตรูตัวสุดท้ายอาจตายระหว่างรอ (เช่น Ultimate ที่ยังค้างอยู่)
+        openPendingQuiz();           // โจทย์สแตกเต็มที่ถูกปิดไปตอนตาย ให้กลับมาขึ้นต่อ
+    }
+
+    /** กะพริบตัวผู้เล่นตลอดช่วงอมตะหลังฟื้น */
+    private void startReviveBlink() {
+        stopReviveBlink();
+        if (playerContainer == null) return;
+        final long endMs = System.currentTimeMillis() + REVIVE_INVULN_MS;
+        reviveBlinkRunnable = new Runnable() {
+            private boolean dim = true;
+
+            @Override
+            public void run() {
+                if (playerContainer == null) return;
+                if (System.currentTimeMillis() >= endMs) {
+                    playerContainer.setAlpha(1f);
+                    reviveBlinkRunnable = null;
+                    return;
+                }
+                playerContainer.setAlpha(dim ? 0.3f : 1f);
+                dim = !dim;
+                uiHandler.postDelayed(this, REVIVE_BLINK_MS);
+            }
+        };
+        uiHandler.post(reviveBlinkRunnable);
+    }
+
+    private void stopReviveBlink() {
+        if (reviveBlinkRunnable != null) uiHandler.removeCallbacks(reviveBlinkRunnable);
+        reviveBlinkRunnable = null;
     }
 
     // =========================================================
@@ -826,6 +932,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
+                if (reviveActive) return;   // ระหว่างโจทย์ฟื้นคืนชีพ ข้ามด้วย Back ไม่ได้
                 if (overlayPause.getVisibility() == View.VISIBLE) closePauseMenu();
                 else openPauseMenu();
             }
@@ -878,7 +985,10 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
      * - ยกเลิกการปล่อย Ultimate อัตโนมัติที่รอเวลาอยู่ และซ่อนหลอดเวลา Ultimate
      */
     private void cancelEverythingForStageEnd() {
-        if (quizManager != null) quizManager.dismiss();
+        // โจทย์ฟื้นคืนชีพต้องรอผู้เล่นตอบก่อน (ตอบผิด/หมดเวลาค่อยขึ้นหน้าแพ้ซึ่งโจทย์ปิดไปแล้ว)
+        if (quizManager != null && !reviveActive) quizManager.dismiss();
+        stopReviveBlink();
+        if (playerContainer != null) playerContainer.setAlpha(1f);
         overlayPause.setVisibility(View.GONE);
         findViewById(R.id.overlayTutorial).setVisibility(View.GONE);
         if (pendingAutoUltimate != null) {
@@ -961,18 +1071,18 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         finish();
     }
 
-    private void checkWinCondition() {
-        boolean allDead = true;
+    /** เงื่อนไขชนะของด่าน: ศัตรูที่ต้องกำจัดตายหมดแล้ว */
+    private boolean allEnemiesDefeated() {
         for (int enemyIdx = 0; enemyIdx < enemyList.size(); enemyIdx++) {
             SeaEnemy enemy = enemyList.get(enemyIdx);
             if (stageConfig.boss && !(enemy instanceof KrakenBoss)) continue;   // ด่านบอส: ชนะเมื่อบอสตาย ลูกน้องไม่ต้องกำจัดให้หมด
-            if (enemy.isAlive) {
-                allDead = false;
-                break;
-            }
+            if (enemy.isAlive) return false;
         }
+        return true;
+    }
 
-        if (allDead && isGameRunning) {
+    private void checkWinCondition() {
+        if (allEnemiesDefeated() && isGameRunning) {
             SoundManager.play(SoundManager.Sfx.WIN);
             isGameRunning = false;
 
@@ -1011,6 +1121,10 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
                         SoundManager.play(SoundManager.Sfx.ULTIMATE);
                         ultimateRunning = true;
                         pendingAutoUltimate = () -> {
+                            if (reviveActive) {   // ตายระหว่างรอปล่อย Ultimate: รอจนโจทย์ฟื้นคืนชีพจบก่อน
+                                uiHandler.postDelayed(pendingAutoUltimate, 300);
+                                return;
+                            }
                             pendingAutoUltimate = null;
                             isGamePaused = false;
                             if (!isGameRunning || isFinishing()) return;
@@ -1127,6 +1241,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
 
         Choreographer.getInstance().removeFrameCallback(frameCallback);
 
+        stopReviveBlink();
         if (quizManager != null) quizManager.destroy();
 
         // ทิ้งกอง View เอฟเฟกต์ที่ใช้ซ้ำ (ผูกกับพื้นที่เกมของ Activity นี้)

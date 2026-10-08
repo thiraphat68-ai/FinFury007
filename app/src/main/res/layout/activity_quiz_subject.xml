@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0A1420"
+    tools:context=".QuizSubjectActivity">
+
+    <LinearLayout
+        android:id="@+id/layoutSubjectContent"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingHorizontal="48dp"
+        android:paddingVertical="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="การทดสอบตอบคำถาม"
+            android:textColor="#F39C12"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="เลือกวิชาที่ต้องการทดสอบ (10 ข้อ ไม่จับเวลา)"
+            android:textColor="#BDC3C7"
+            android:textSize="14sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnSubjectCalculus"
+                style="@style/QuizSubjectCard"
+                android:text="∫\nแคลคูลัส" />
+
+            <Button
+                android:id="@+id/btnSubjectCircuits"
+                style="@style/QuizSubjectCard"
+                android:text="⚡\nวงจรไฟฟ้า" />
+
+            <Button
+                android:id="@+id/btnSubjectChemistry"
+                style="@style/QuizSubjectCard"
+                android:text="⚗\nเคมี" />
+
+            <Button
+                android:id="@+id/btnSubjectProgramming"
+                style="@style/QuizSubjectCard"
+                android:text="&lt;/&gt;\nการเขียนโปรแกรม" />
+
+            <Button
+                android:id="@+id/btnSubjectPhysics"
+                style="@style/QuizSubjectCard"
+                android:text="⚛\nฟิสิกส์" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnSubjectBack"
+            android:layout_width="220dp"
+            android:layout_height="wrap_content"
+            android:backgroundTint="#34495E"
+            android:text="⬅ กลับ"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
+    </LinearLayout>
+</FrameLayout>

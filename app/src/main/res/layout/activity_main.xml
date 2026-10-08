@@ -47,10 +47,25 @@
             android:text="@string/btn_start"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
-            app:layout_constraintBottom_toTopOf="@+id/btnSettings"
+            app:layout_constraintBottom_toTopOf="@+id/btnQuizPractice"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/txtTitle" />
+
+        <!-- ปุ่มการทดสอบตอบคำถาม (โหมดตอบคำถามอย่างเดียว ไม่ต้องเล่นเกม) -->
+        <Button
+            android:id="@+id/btnQuizPractice"
+            android:layout_width="220dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="12dp"
+            android:backgroundTint="#8E44AD"
+            android:text="การทดสอบตอบคำถาม"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            app:layout_constraintBottom_toTopOf="@+id/btnSettings"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/btnStart" />
 
         <!-- ปุ่มตั้งค่า (เปิดหน้า SettingsActivity) -->
         <Button
@@ -65,7 +80,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/btnStart" />
+            app:layout_constraintTop_toBottomOf="@+id/btnQuizPractice" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- ============================================== -->
