@@ -1,0 +1,153 @@
+@@ 1 | package
+=====================================================================================
+[คนที่ 4 - บอท เสียง และเอฟเฟกต์]  ไฟล์: KrakenBoss.java  (476 บรรทัด)
+ตำแหน่งไฟล์จริง: app/src/main/java/com/example/finfury/KrakenBoss.java
+สำเนานี้เพิ่มคอมเมนต์ โค้ดเหมือนไฟล์จริงทุกตัวอักษร
+
+[ไฟล์นี้คืออะไร]
+  บอสด่าน 5 "Kraken Boss" (extends SeaEnemy) ตัวใหญ่ 8 เท่า มี 2 ชีวิต:
+    ชีวิตที่ 1 (เฟส 1) เลือด 100 : ยืนนิ่งกลางจอด้านขวา ยิงคลื่นพลังเป็นชุด (5 เส้น 2 ชุด) ทุก 5 วินาที
+    ชีวิตที่ 2 (เฟส 2) เลือด 30  : ตัวใหญ่ขึ้น 2 เท่า โกรธ ยิงถี่ขึ้น 1.5 เท่า คลื่น 7 เส้น 3 ชุด เร็วขึ้น และคืบเข้าหาผู้เล่นช้า ๆ
+                                  + หางฟาดระยะประชิด (ดาเมจ 15) มีวงเตือนก่อน
+  ลูกน้อง (BossMinion) 5 ตัวช่วยเฟส 1: ลูกน้องตาย 1 ตัว บอสเสียเลือด 10
+  บอส "ไม่โดนสตัน สโลว์ กลืน ผลักถอย" (override เป็นเมธอดว่าง)
+  หลอดเลือดบอสอยู่บน HUD กลางบนของจอ (layoutBossBar ใน activity_battle.xml) ไม่ใช่ติดตัวบอส
+  ภาพบอสเป็นแอนิเมชัน 47 เฟรม octo_idle_00..46 (res/drawable-nodpi/) เล่น 24 เฟรม/วินาที
+
+[ผังไฟล์] ค่าคงที่ -> ตัวแปร -> constructor -> override ต่าง ๆ (ไม่โดนสตัน ฯลฯ) -> reviveOnDepleted (เสียชีวิตแรก)
+          -> applyBossSize/enterPhase2/loadFrames/ชื่อ -> HUD (setupBossHud/syncHud) -> takeDamage
+          -> computeHome/placeAtHome -> updateAI (สมองบอส) -> หางฟาด -> เส้นเตือน -> animate
+
+[จะแก้ความยากบอสยังไง]
+  เลือด: BOSS_HP, PHASE2_HP | จำนวนชีวิต: MAX_LIVES (ต้องแก้ตรรกะเฟส 2 ด้วยถ้าเพิ่ม)
+  คลื่นพลัง: WAVE_DAMAGE, WAVE_SPEED, WAVE_COOLDOWN_MS, WAVE_VOLLEYS และชุดค่า PHASE2_*
+  หางฟาด: TAIL_DAMAGE, TAIL_COOLDOWN_MS, TAIL_WINDUP_MS (ยิ่งนานยิ่งหลบง่าย), TAIL_EXTRA_RADIUS
+  ลูกน้องกระทบเลือดบอสแค่ไหน: BOSS_HP_LOSS ใน BossMinion.java
+=====================================================================================
+
+@@ 8 | /**
+[คอมเมนต์คลาส - โดยเจ้าของไฟล์เดิม]
+
+@@ 16 | BOSS_HP
+[ค่าคงที่เลือด] BOSS_HP = เลือดชีวิตแรก | MAX_LIVES = จำนวนชีวิต | PHASE2_HP = เลือดชีวิตที่สอง
+
+@@ 20 | WAVE_WINDUP_MS
+[ค่าคงที่คลื่นพลัง] WAVE_WINDUP_MS = เวลาเตือนก่อนยิงแต่ละชุด | WAVE_COOLDOWN_MS = พักระหว่างรอบ | WAVE_DAMAGE = ดาเมจต่อเส้น
+  WAVE_SPREAD_DEG = มุมห่างระหว่างเส้น | WAVE_SPEED = ความเร็วคลื่น (px/วินาที)
+
+@@ 27 | HIT_SLOW_FACTOR
+[ค่าคงที่ผลโดน] โดนบอสตี = ผู้เล่นเหลือ 50% ความเร็ว นาน 3 วินาที | PHASE2_SIZE_MUL ขยายเฟส 2 | PHASE2_MOVE_SPEED ความเร็วเดินเฟส 2
+
+@@ 31 | เฟส 2: ยิงคลื่น
+[ค่าคงที่เฟส 2] PHASE2_WAVE_LINES จำนวนเส้น , PHASE2_WAVE_SPREAD_DEG มุมห่าง (น้อยลง = แน่นขึ้น) , PHASE2_WAVE_VOLLEYS จำนวนชุด , PHASE2_WAVE_SPEED ความเร็ว
+
+@@ 36 | หางฟาด
+[ค่าคงที่หางฟาด (เฟส 2)] ดาเมจ 15 , คูลดาวน์ 5 วินาที , เวลาเตือน 0.6 วินาที , วงฟาดกว้างกว่าตัวบอสอีก 120 px , PHASE2_RATE_MUL ความถี่โจมตีเฟส 2
+
+@@ 42 | BOSS_SCALE
+[BOSS_SCALE] ขนาดภาพบอสเทียบมาตรฐาน (8 เท่า) | FRAME_ASPECT สัดส่วนกว้างยาวของเฟรมแอนิเมชัน (170x256) | WAVE_VOLLEYS ชุดต่อรอบเฟส 1
+
+@@ 46 | private enum Phase
+[Phase] สถานะสมองบอส: IDLE (ยืนรอ) , WAVE_WINDUP (เตรียมยิงคลื่น) , TAIL_WINDUP (เตรียมหางฟาด)
+
+@@ 48 | private int lives
+[ตัวแปรสถานะ] lives = ชีวิตที่เหลือ | phase = สถานะตอนนี้ | phaseMs = เวลาที่อยู่ในสถานะ | waveCooldownMs = ตัวนับถอยหลังก่อนยิงคลื่นรอบถัดไป
+
+@@ 54 | private float homeX
+[จุดพัก] homeX/homeY = ตำแหน่งที่บอสยืนรอ (72% ของความกว้างจอ กึ่งกลางแนวตั้ง) | homeSet = วางตำแหน่งแล้วหรือยัง
+
+@@ 57 | private int waveVolley
+[ตัวแปรคลื่น] waveVolley = ชุดที่ยิงไปแล้ว | attackRate = ตัวคูณความถี่ (เฟส 2 = 1.5) | sizeMul = ตัวคูณขนาด (เฟส 2 = 2)
+
+@@ 61 | PLAYER_DAMAGE_MUL
+[โบนัสดาเมจที่ผู้เล่นทำใส่บอส +15%] damageCarry = เศษดาเมจสะสม (ดาเมจเป็นจำนวนเต็มเล็ก ถ้าปัดทิ้งโบนัสจะหาย)
+  ตัวแปรเฟส 2: phase2, waveLines, waveSpreadDeg, waveVolleys, waveSpeed (ค่าเริ่มต้นเฟส 1 แล้วเปลี่ยนตอน enterPhase2) , tailCooldownMs, tailTelegraph
+
+@@ 71 | private final View[] waveTelegraphs
+[เส้นเตือนคลื่น] อาร์เรย์เก็บเส้นเตือน + ทิศ (x, y) ของแต่ละเส้น ขนาดเท่าเส้นสูงสุด (เฟส 2 = 7)
+
+@@ 75 | private float animTime
+[ตัวแปรแอนิเมชัน] animTime , damageMul (ตัวคูณดาเมจตามด่านจาก StageConfig)
+
+@@ 78 | เฟรมแอนิเมชัน
+[เฟรมแอนิเมชัน] FRAME_COUNT เฟรม โหลดครั้งเดียวเก็บในอาร์เรย์ frames ไม่ decode ซ้ำทุกเฟรม (ประหยัดเครื่อง) , FRAME_FPS ความเร็วเล่น
+
+@@ 86 | public KrakenBoss
+[constructor] เรียก super (สร้างศัตรูพื้นฐาน) แล้วตั้ง HUD หลอดเลือดบอส โหลดเฟรม ตั้งชื่อ
+  ขนาดจริงของจอรู้ตอน layout เสร็จ จึงใช้ containerView.post สองชั้น: ปรับขนาดภาพ แล้วค่อยวางที่จุดพัก
+
+@@ 99 | ตั้งค่าเฉพาะบอส
+[ข้อควรระวัง] configureEnemyStats ถูกเรียกจาก constructor ของ SeaEnemy ก่อนที่ฟิลด์ของ KrakenBoss ถูกกำหนดค่า จึงแตะได้เฉพาะฟิลด์ของ SeaEnemy (maxHp, hp)
+
+@@ 108 | protected float visualScale
+[override ของบอส] visualScale = ขยาย 8 เท่า | getDrawableResId = ใช้ภาพ boss_image แทนอีโมจิ | allowKnockback = ไม่ถูกผลักถอย | livesLeft = จำนวนชีวิต
+
+@@ 120 | public void stun
+[บอสไม่โดนสถานะ] stun / applySlow / setSwallowed เป็นเมธอดว่าง (ตั้งใจ) บอสตัวใหญ่เกินกว่าจะโดน
+
+@@ 129 | protected boolean reviveOnDepleted
+[reviveOnDepleted = ตอน HP หมด] SeaEnemy.takeDamage เรียกเมธอดนี้: คืน true = ไม่ตาย / false = ตายจริง
+  ลดชีวิต 1 + ยกเลิกเส้นเตือน ถ้าไม่เหลือชีวิต = ตายจริง
+  ถ้ายังเหลือ: เข้าเฟส 2 : เลือดเหลือ PHASE2_HP , อัปเดตหลอด , เสียงเตือน , ctx.onEnemyLifeLost() (BattleActivity เก็บลูกน้อง + ดรอปหัวใจ) , enterPhase2()
+
+@@ 153 | ปรับกรอบภาพบอส
+[applyBossSize] ปรับกรอบภาพให้ตรงสัดส่วนเฟรม (hitbox จะพอดีตัว) กว้าง = 65 x BOSS_SCALE x sizeMul และบีบไม่ให้สูงเกิน 95% ของจอ
+
+@@ 169 | private void enterPhase2
+[enterPhase2] เปลี่ยนค่าทั้งหมดเป็นของเฟส 2 (ขนาด ความถี่ จำนวนเส้น/ชุด/ความเร็วคลื่น ตั้งคูลดาวน์หางฟาดครั้งแรก 2 วินาที)
+  แล้วหลัง layout ใหม่ ขยายออกรอบจุดกลางเดิม และคำนวณจุดพักใหม่ให้พอดีขนาดใหม่
+
+@@ 192 | private void loadFrames
+[loadFrames] วนโหลดรูป octo_idle_00 ถึง octo_idle_46 ด้วยชื่อ (getIdentifier) หยุดเมื่อหาไม่เจอ
+  [เปลี่ยนแอนิเมชันบอส] ใส่รูปชื่อเดียวกันใน res/drawable-nodpi/ และปรับ FRAME_COUNT
+
+@@ 204 | private void refreshNameLabel
+[ชื่อบอส] "Kraken Boss ❤❤" จำนวนหัวใจ = ชีวิตที่เหลือ แสดงบน HUD
+
+@@ 216 | หลอดเลือดบอสตรงกลางบน
+[HUD หลอดเลือดบอส] หา View จาก Activity (layoutBossBar, txtBossName, txtBossHp, barBossHp ใน activity_battle.xml)
+  ซ่อนหลอด/ชื่อที่ติดตัวบอส แล้วโชว์ HUD บนจอแทน | syncHud อัปเดตหลอดและตัวเลข
+
+@@ 248 | @Override
+[takeDamage ของบอส] คูณดาเมจผู้เล่น 1.15 แล้วเก็บเศษ (damageCarry) ก่อนส่งให้ super.takeDamage แล้ว syncHud
+
+@@ 258 | ลดเลือดบอสตามจำนวนที่กำหนด
+[takeFixedDamage] ลดเลือดตรง ๆ ไม่คิดโบนัส ใช้ตอนลูกน้องตาย (BossMinion.onDefeated เรียก)
+
+@@ 264 | private void computeHome
+[computeHome / placeAtHome] คำนวณและวางตำแหน่งจุดพัก (72% ของความกว้าง กลางแนวตั้ง) ต้องรอจอรู้ขนาดก่อน
+
+@@ 282 | AI
+[updateAI = สมองบอส (override)] ต่างจากศัตรูทั่วไป: ไม่เดิน ไม่โดนสตัน
+  ทุกเฟรม: คิด dt , นับคูลดาวน์ (เฟส 2 นับเร็วขึ้นตาม attackRate; หางฟาดนับปกติ) แล้วเลือกตามสถานะ:
+   IDLE : ถ้าเฟส 2 และผู้เล่นอยู่ในรัศมีหางฟาดและหางพร้อม -> เตือนหางฟาด
+          ไม่ใช่ ถ้าคลื่นพร้อม -> เตือนคลื่น (ล็อกทิศหาผู้เล่น)
+          ไม่ใช่ ถ้าเฟส 2 และผู้เล่นไกล -> คืบเข้าหาช้า ๆ
+   TAIL_WINDUP : ครบ 0.6 วินาที -> ถ้าผู้เล่นยังอยู่ในวงโดนดาเมจ+สโลว์ (หลบออกทัน = ไม่โดน) แล้วรอคูลดาวน์
+   WAVE_WINDUP : ครบ 0.5 วินาที -> ยิงคลื่นทุกเส้นด้วย RangedAttacks.fireLine ถ้ายังไม่ครบจำนวนชุด เล็งใหม่ยิงอีก ไม่งั้นเริ่มคูลดาวน์
+  แล้วเล่นแอนิเมชัน
+
+@@ 367 | private float tailRadius
+[tailRadius] รัศมีหางฟาด = ครึ่งหนึ่งของด้านใหญ่สุดของบอส + TAIL_EXTRA_RADIUS
+
+@@ 371 | ขยับตำแหน่งมุมซ้ายบน
+[moveToward] ขยับบอสเข้าหาจุดหมายไม่เกิน step px ต่อเฟรม และจำกัดไม่ให้หลุดจอ (ใช้ตอนคืบในเฟส 2)
+
+@@ 383 | private void showTailTelegraph
+[วงเตือนหางฟาด] วงกลมสีแดงโปร่งใสรอบบอส ค่อยทึบขึ้นตามเวลาเตือน เล่นเสียงเตือน (ผู้เล่นต้องวิ่งออกนอกวง)
+
+@@ 403 | private void removeTailTelegraph
+[ลบวงเตือน] ยกเลิกแอนิเมชันแล้วลบวงออกจากจอ
+
+@@ 412 | private int scaled
+[scaled] ดาเมจ x damageMul ของด่าน อย่างน้อย 1
+
+@@ 414 | private void enterPhase
+[enterPhase] เปลี่ยนสถานะและรีเซ็ตตัวนับเวลา
+
+@@ 419 | เส้นเตือน
+[เส้นเตือนคลื่นพลัง] showWaveTelegraphs : คำนวณมุมกลางไปทางผู้เล่น แล้วแผ่เป็นพัด (waveLines เส้น ห่างกัน waveSpreadDeg) เก็บทิศเพื่อยิงจริงด้วยทิศเดียวกัน
+  โชว์แถบเตือนแต่ละเส้นจากกองที่ใช้ซ้ำ (HitEffects.showAttackPath) | releaseWaveTelegraphs คืนกอง | cancelTelegraphs ล้างทั้งหมด
+
+@@ 453 | แอนิเมชัน
+[animate] เปลี่ยนเฟรมภาพตามเวลา (เร็วขึ้น 1.6 เท่าตอนเตรียมยิง) + ส่าย/บีบตัวเบา ๆ (หายใจ) และสั่นแรงตอนเตรียมยิงคลื่น
