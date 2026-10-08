@@ -1,5 +1,5 @@
 // *** ไฟล์ตัวอย่างเฉพาะส่วนของ คนที่ 3 (View: HUD / overlay / หน้าผลลัพธ์) ***
-// ตัดส่วนของคนอื่นออกเพื่อให้อ่านง่าย ไฟล์นี้ใช้ build ไม่ได้ ให้ดูโค้ดเต็มที่ _full_annotated/BattleActivity.java
+// ตัดส่วนของคนอื่นออกเพื่อให้อ่านง่าย ไฟล์นี้ใช้ build ไม่ได้ ให้ดูโค้ดเต็มที่ shared_BattleActivity/BattleActivity.java
 // ตำแหน่งไฟล์จริง: app/src/main/java/com/example/finfury/BattleActivity.java
 
 // =====================================================================================

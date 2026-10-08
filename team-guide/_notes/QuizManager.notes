@@ -1,0 +1,119 @@
+@@ 1 | package
+=====================================================================================
+[คนที่ 5 - ข้อมูล ควิซ ไอเทม และสมดุลเกม]  ไฟล์: QuizManager.java  (353 บรรทัด)
+ตำแหน่งไฟล์จริง: app/src/main/java/com/example/finfury/QuizManager.java
+หน้าตา (overlay) อยู่ใน: app/src/main/res/layout/activity_battle.xml (id overlayQuiz และลูก ๆ txtQuiz*, btnQuizOpt1..4, barQuizTime)
+สำเนานี้เพิ่มคอมเมนต์ โค้ดเหมือนไฟล์จริงทุกตัวอักษร
+
+[ไฟล์นี้คืออะไร]
+  "ตัวจัดการโจทย์ quiz" ที่ขึ้นเมื่อสแตกพลังเต็ม ทำครบวงจรในคลาสเดียว:
+    ขึ้นหน้าต่างโจทย์ -> นับ 3-2-1 -> เฉลยโจทย์ + เริ่มจับเวลา 30 วินาที -> ผู้เล่นเลือกตอบ (หรือหมดเวลา)
+    -> โชว์ผลถูก/ผิด + ไฮไลต์ข้อที่ถูกเป็นสีเขียว ~2 วินาที -> ปิดหน้าต่าง -> แจ้งผลกลับผ่าน Listener
+  BattleActivity (คนที่ 1) ไม่ต้องรู้รายละเอียดของ quiz เลย แค่เรียก show() แล้วรับผลทาง Listener 4 จังหวะ :
+    onQuizShown (ควรหยุดเกม) , onCorrect , onWrong , onTimeout   (ดู BattleActivity.setupQuiz)
+  คลังโจทย์ไม่อยู่ที่นี่ แต่อยู่ใน QuestionBank.java (QuizManager รับ List<QuizQuestion> มาตอนสร้าง)
+
+[ลำดับการทำงาน (ผังสั้น)]
+  show() --gate.canShow()?--> listener.onQuizShown --> สุ่มโจทย์ (nextQuestionIndex) --> เติมข้อความ/ปุ่ม
+        --> นับ 3-2-1 (runCountdown) --> beginQuizTimer (30 วิ) --> ผู้เล่นกด --> resolve(choice)
+        --> หน่วง 2 วินาที (pendingClose) --> ปิด --> listener.onCorrect/onWrong/onTimeout
+
+[จะแก้ยังไง]
+  เวลาตอบ: QUIZ_TIME_MS | เวลาโชว์ผล: FEEDBACK_MS | เลขนับถอยหลัง: COUNTDOWN_FROM, COUNTDOWN_STEP_MS | สีปุ่ม: COLOR_*
+  ข้อความถูก/ผิด: แก้ txtFeedback.setText ใน resolve | รูปแบบเวลา: updateTime
+  เพิ่มโจทย์: แก้ QuestionBank.java ไม่ต้องแก้ไฟล์นี้
+[ข้อควรระวัง] ห้ามเปลี่ยน id ใน overlayQuiz ของ activity_battle.xml โดยไม่แก้ constructor ด้านล่างให้ตรงกัน
+=====================================================================================
+
+@@ 23 | /**
+[คอมเมนต์คลาส - โดยเจ้าของไฟล์เดิม]
+
+@@ 29 | public class QuizManager
+[ส่วนหัวคลาส]
+
+@@ 31 | public static class QuizQuestion
+[QuizQuestion = โจทย์ 1 ข้อ] question = ข้อความโจทย์ (บรรทัดที่ขึ้นต้นด้วย "สูตร:" จะถูกแยกไปแสดงสีเหลืองใต้โจทย์ ดู showQuestionText)
+  options = ตัวเลือก (สูงสุด 4) | correctIndex = ลำดับข้อที่ถูก (เริ่มที่ 0) ทุกฟิลด์ final (สร้างแล้วแก้ไม่ได้)
+
+@@ 43 | public interface Listener
+[Listener = ช่องทางแจ้งผลกลับ] BattleActivity implement 4 เมธอดนี้ ทุกผลถูกเรียก "หลังโชว์ผลครบ 2 วินาทีและปิดหน้าต่างแล้ว"
+  [เพิ่มจังหวะใหม่] เพิ่มเมธอดใน interface แล้ว implement ที่ BattleActivity.setupQuiz และเรียกที่ใน resolve/show
+
+@@ 57 | QUIZ_TIME_MS
+[ค่าคงที่เวลา] QUIZ_TIME_MS = เวลาตอบ 30 วินาที | FEEDBACK_MS = เวลาโชว์ผลถูก/ผิด | BAR_MAX = ความละเอียดของหลอดเวลา (0-1000)
+
+@@ 61 | COLOR_OPTION
+[สีปุ่มตัวเลือก] ปกติ (น้ำเงินเข้ม) / ถูก (เขียว) / ผิด (แดง)
+
+@@ 65 | private final String title
+[ข้อมูลที่รับมาตอนสร้าง] title = ชื่อวิชาที่แสดงเป็น "ชื่อวิชา Quiz" , bank = คลังโจทย์ของฮีโร่ , listener = ตัวรับผล
+
+@@ 69 | private final View overlay
+[View ที่ใช้] overlay = หน้าต่างโจทย์ทั้งก้อน | txtTitle, txtQuestion, txtTime, txtFeedback, barTime , optionButtons[4] = ปุ่มตัวเลือก 4 ปุ่ม
+
+@@ 77 | private final Handler handler
+[handler] ตัวหน่วงเวลาบนเธรดหลัก (นับ 3-2-1 และหน่วงปิด) | deck = "กองไพ่" ของโจทย์ที่ยังไม่ถูกหยิบ | lastQuestionIndex = ข้อล่าสุด (กันซ้ำติดกัน)
+
+@@ 80 | private final TextView txtFormula
+[ตัวแปรสถานะ] timer = ตัวนับถอยหลัง | current = โจทย์ปัจจุบัน | answered = ตอบแล้ว/หมดเวลาแล้ว (กดซ้ำไม่ได้)
+  pendingClose, countdownRunnable = งานที่รอเวลา (ต้องยกเลิกได้) | lastTickSecond = วินาทีล่าสุดที่เล่นเสียงติ๊ก
+
+@@ 88 | COUNTDOWN_FROM
+[ค่านับถอยหลังก่อนโจทย์ขึ้น] เริ่มที่ 3 ทุก 1 วินาที | layoutContent = เนื้อหา quiz ที่ซ่อนไว้ระหว่างนับ | txtCountdown = เลขใหญ่กลางจอ
+
+@@ 94 | public QuizManager(
+[constructor] รับ Context, overlay, ชื่อวิชา, คลังโจทย์, listener แล้วผูก View ทั้งหมดด้วย id (ดูรายการใน activity_battle.xml)
+  ผูก onClick ของปุ่มตัวเลือกทุกปุ่มให้เรียก resolve(ลำดับปุ่ม) , เรียก keepContentOutOfCutout , ตั้ง max ของหลอดเวลา
+
+@@ 121 | กันกล้องหน้า
+[keepContentOutOfCutout] กันกล้องหน้า/รอยบากบังโจทย์ : เพิ่ม padding ซ้ายขวาเท่ากันตามฝั่งที่ cutout ใหญ่กว่า (ทำงานได้ทั้งตอนกล้องอยู่ซ้ายหรือขวา)
+  เครื่องที่ไม่รายงาน cutout ใช้ padding ขั้นต่ำ 48dp
+
+@@ 142 | ผู้เรียกใช้บอกว่า
+[Gate = ประตูกันโจทย์] ผู้เรียก (BattleActivity.canOpenQuiz) บอกว่าตอนนี้เปิดโจทย์ได้ไหม (เช่น ด่านจบแล้ว หรือมีเมนูอื่นเปิดอยู่) setGate ผูกตัวตรวจ
+  isShowing() = โจทย์กำลังแสดงอยู่ไหม
+
+@@ 157 | public void show
+[show] เปิดโจทย์ (ไม่ทำถ้าคลังว่าง กำลังแสดงอยู่ หรือประตูไม่ยอม) :
+  แจ้ง onQuizShown (ให้หยุดเกม) -> สุ่มโจทย์ -> ล้างข้อความผล -> ใส่ข้อความปุ่ม "A.  ตัวเลือก" (ปุ่มที่ไม่ใช้ = ล่องหน เก็บที่ไว้) -> ตั้งเวลาเต็ม
+  -> แสดง overlay -> ซ่อนเนื้อหา (ผู้เล่นยังไม่เห็นโจทย์) แล้วนับ 3-2-1
+  [เพิ่มตัวเลือกเป็น 5 ข้อ] ต้องเพิ่มปุ่มใน XML + ในอาร์เรย์ optionButtons ขนาด 4 + constructor
+
+@@ 188 | private void runCountdown
+[runCountdown] นับถอยหลังแบบเรียกตัวเองซ้ำ : โชว์เลข (เด้งจาก 1.6 เท่าแล้วหดจางใน 1 วินาที) หน่วง 1 วินาทีแล้วเรียกตัวเองด้วย number-1
+  ถึง 0 = ซ่อนเลข โชว์เนื้อหาโจทย์ และเริ่มจับเวลา (beginQuizTimer)
+
+@@ 207 | private void beginQuizTimer
+[beginQuizTimer] CountDownTimer ติ๊กทุก 100 ms : อัปเดตหลอดเวลาและตัวเลข , 10 วินาทีสุดท้ายเล่นเสียงติ๊กวินาทีละครั้ง (จำวินาทีล่าสุดกันซ้ำ)
+  หมดเวลา -> updateTime(0) แล้ว resolve(-1) (-1 = หมดเวลา)
+
+@@ 231 | สุ่มแบบไม่ซ้ำ
+[nextQuestionIndex] สุ่มแบบ "สับไพ่" : ใส่ลำดับโจทย์ทั้งหมดลงกอง สับ แล้วหยิบทีละใบจนหมดจึงสับใหม่ (ไม่ซ้ำจนกว่าจะครบทุกข้อ)
+  ข้อแรกของกองใหม่จะไม่ซ้ำกับข้อสุดท้ายของกองเก่า (สลับตำแหน่งถ้าชน)
+
+@@ 248 | แยกบรรทัดสูตร
+[showQuestionText] ถ้าโจทย์มี "\nสูตร:" แยกส่วนสูตรไปแสดงเป็นบรรทัดสีเหลืองใต้โจทย์ ถ้าไม่มีซ่อนช่องสูตร
+
+@@ 261 | choice = ข้อที่เลือก
+[resolve(choice)] ตัดสินคำตอบ (choice = ลำดับปุ่มที่เลือก , -1 = หมดเวลา) : กันกดซ้ำด้วย answered , หยุดจับเวลา
+  ไฮไลต์ข้อที่ถูกสีเขียวเสมอ , ข้อที่เลือกผิดสีแดง , ข้อความ "✅ ถูกต้อง!" / "⏰ หมดเวลา!" / "❌ ผิด!" (บอกให้ดูข้อสีเขียว เพื่อให้ผู้เล่นได้เรียนรู้)
+  แล้วหน่วง FEEDBACK_MS ค่อยปิด overlay และเรียก listener ที่ตรงกับผลลัพธ์
+
+@@ 296 | เรียกจาก onDestroy ของ Activity
+[dismiss] ปิดโจทย์ทันทีโดย "ไม่เรียก" onCorrect/onWrong/onTimeout : ยกเลิกตัวนับเวลา งานที่รอเวลา และการนับ 3-2-1 แล้วซ่อน overlay
+  ใช้ตอนด่านจบขณะโจทย์เปิดอยู่ (BattleActivity.cancelEverythingForStageEnd) answered = true ทำให้กดตอบต่อไม่ได้
+
+@@ 314 | เรียกจาก onDestroy ของ Activity
+[destroy] เรียก dismiss() (เรียกตอน BattleActivity.onDestroy)
+
+@@ 319 | private void cancelTimer
+[cancelTimer] ยกเลิกและลืมตัวนับถอยหลัง
+
+@@ 326 | private int lastShownSecond
+[ตัวแปรแสดงเวลา] จำวินาทีและความคืบหน้าหลอดล่าสุด + StringBuilder ใช้ซ้ำ กันสร้างข้อความใหม่ทุก 100 ms
+
+@@ 330 | onTick ถี่ทุก 100 ms
+[updateTime] อัปเดตหลอด (เมื่อค่าเปลี่ยนจริง) และข้อความ "นาที:วินาที" (เมื่อเปลี่ยนวินาที) เช่น 00:30
+
+@@ 350 | private static void tint
+[tint] เปลี่ยนสีพื้นหลังปุ่ม
