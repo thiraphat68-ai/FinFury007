@@ -34,8 +34,9 @@ def main(src, notes, out):
         n = it["line"]
         if not (1 <= n <= len(lines)):
             sys.exit(f"ERROR {notes}: บรรทัด {n} เกินไฟล์ ({len(lines)})")
-        if it["snip"] and it["snip"] not in lines[n - 1]:
-            sys.exit(f"ERROR {notes}: บรรทัด {n} ไม่มีข้อความ '{it['snip']}'\n  จริงคือ: {lines[n-1].strip()[:100]}")
+        window = "\n".join(lines[n - 1:n + 2])   # บรรทัดที่ระบุ + อีก 2 บรรทัดถัดไป (เผื่อเส้นแบ่ง // ====)
+        if it["snip"] and it["snip"] not in window:
+            sys.exit(f"ERROR {notes}: บรรทัด {n} ไม่พบข้อความ '{it['snip']}' ใน 3 บรรทัดที่เริ่มจากบรรทัดนี้\n  จริงคือ: {lines[n-1].strip()[:100]}")
         by_line.setdefault(n, []).extend(it["text"])
     res = []
     for i, l in enumerate(lines, 1):
@@ -52,6 +53,12 @@ def main(src, notes, out):
         res.append(l)
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     open(out, "w", encoding="utf-8").write("\n".join(res))
+    if is_xml:   # XML ต้องยัง "ถูกรูปแบบ" หลังแทรกคอมเมนต์ (คอมเมนต์วางผิดที่ เช่น กลาง tag จะพัง)
+        import xml.etree.ElementTree as ET
+        try:
+            ET.parse(out)
+        except ET.ParseError as e:
+            sys.exit(f"ERROR XML ผลลัพธ์ไม่ถูกรูปแบบ: {e}")
     here = os.path.dirname(os.path.abspath(__file__))
     r = subprocess.run([sys.executable, os.path.join(here, "verify_same_code.py"), src, out])
     sys.exit(r.returncode)

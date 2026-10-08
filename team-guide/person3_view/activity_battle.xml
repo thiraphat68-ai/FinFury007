@@ -1,0 +1,940 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  =====================================================================================
+  [คนที่ 3 - View]  ไฟล์ layout: activity_battle.xml  (817 บรรทัด)
+  ตำแหน่งไฟล์จริง: app/src/main/res/layout/activity_battle.xml
+  โค้ดที่ควบคุมไฟล์นี้: BattleActivity.java (คนที่ 1 + คนที่ 3) และ QuizManager.java (คนที่ 5 ใช้ overlayQuiz)
+  สำเนานี้เพิ่มคอมเมนต์ โค้ดเหมือนไฟล์จริงทุกตัวอักษร
+
+  [ไฟล์นี้คืออะไร]
+    หน้าตาของ "ฉากต่อสู้" ทั้งหมด ซ้อนเป็นชั้น (layer) ใน ConstraintLayout ตัวเดียว ชั้นที่อยู่ท้ายไฟล์จะวาดทับชั้นก่อนหน้า:
+      Layer 0  imgBattleBackground  ภาพพื้นหลังด่าน
+      Layer 1  gameArea             พื้นที่เล่น (ผู้เล่น + ศัตรูและเอฟเฟกต์ที่โค้ดเพิ่มเข้ามา)
+      Layer 2  มุมบนซ้าย            รูปโปรไฟล์ + หลอดเลือด + ตัวเลข HP + ข้อความบัฟ + ข้อความด่าน + หลอดบอส
+      Layer 3  layoutStack          หลอด Stack กลางบน
+      Layer 4  btnBack              ปุ่มหยุดเกม มุมขวาบน
+      Layer 5  joystickBase         จอยสติ๊ก มุมซ้ายล่าง
+      Layer 6  layoutSkills         ปุ่ม Skill 1, Skill 2 มุมขวาล่าง
+      Layer 7  btnUltimate + layoutUltTimer  ปุ่ม ULT และหลอดเวลา Ultimate
+      Overlay  overlayQuiz / overlayPause / overlayTutorial / overlayResult  (หน้าต่างทับเต็มจอ ซ่อนไว้ก่อน visibility="gone")
+    overlay ทุกตัวมี clickable+focusable+elevation 30dp เพื่อ "ดูดการสัมผัส" ไม่ให้ทะลุไปกดจอยสติ๊กด้านล่าง
+
+  [ตัวอย่างการแก้ที่พบบ่อย]
+    - ย้าย/ขยายจอยสติ๊กหรือปุ่มสกิล: แก้ layout_width/height และ layout_margin ของบล็อกนั้น
+    - เปลี่ยนสีปุ่มสกิล: android:backgroundTint | เปลี่ยนขนาดตัวอักษรบนปุ่ม: android:textSize
+    - เพิ่ม View ใหม่ในจอ: ใส่ id ใหม่ในไฟล์นี้ แล้ว findViewById ใน BattleActivity.onCreate
+    - ห้ามเปลี่ยน/ลบ id ที่ Java ใช้อยู่ (ค้นหาด้วย R.id.ชื่อ ใน BattleActivity.java / QuizManager.java / KrakenBoss.java)
+  =====================================================================================
+-->
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/battleRootLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0A1420">
+
+    <!--
+      [Layer 0: ภาพพื้นหลังด่าน] imgBattleBackground รูปตั้งต้น bg_level_video แต่ BattleActivity.setupStageBackground เปลี่ยนเป็น bg_stage_N ตามด่าน
+        scaleType centerCrop = ขยายเต็มจอโดยตัดส่วนเกิน
+    -->
+    <!-- ============================================== -->
+    <!-- Layer 0: ภาพพื้นหลังด่าน (Stage Background) -->
+    <!-- ============================================== -->
+    <ImageView
+        android:id="@+id/imgBattleBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:src="@drawable/bg_level_video"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!--
+      [Layer 1: พื้นที่เล่น] gameArea เป็น FrameLayout เต็มจอ ศัตรู ลูกกระสุน เอฟเฟกต์ถูก addView ลงในนี้ด้วยโค้ด Java (พิกัดอิงกล่องนี้)
+    -->
+    <!-- ============================================== -->
+    <!-- Layer 1: พื้นที่เกมเพลย์ (ตัวละคร และ ศัตรู) -->
+    <!-- ============================================== -->
+    <FrameLayout
+        android:id="@+id/gameArea"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <!--
+          [playerContainer = กล่องหุ้มผู้เล่น] ชื่อฮีโร่ (txtPlayerName ตัวเล็กสีเขียว) อยู่เหนือรูปปลา (imgPlayer 70dp ตั้งต้น)
+            ตำแหน่งเริ่ม: กึ่งกลางแนวตั้ง ห่างซ้าย 80dp | โค้ดเลื่อนตัวด้วย translationX/Y | ขนาดรูปถูก setupHeroAndSkills ปรับรายฮีโร่
+        -->
+        <!-- ตัวละครผู้เล่น -->
+        <LinearLayout
+            android:id="@+id/playerContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:layout_marginStart="80dp"
+            android:gravity="center"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/txtPlayerName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:textColor="#2ECC71"
+                android:textSize="11sp" />
+            <ImageView
+                android:id="@+id/imgPlayer"
+                android:layout_width="70dp"
+                android:layout_height="70dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/hero_1" />
+        </LinearLayout>
+
+        <!--
+          [หมายเหตุเดิม] ศัตรูไม่ได้อยู่ใน XML โค้ด spawnStageEnemies สร้างให้
+        -->
+        <!-- ศัตรูบอททั้ง 5 ตัวจะถูกสร้างแบบ Dynamic ในโค้ด Java -->
+
+        <!--
+          [txtBonusDamage] ตัวเลข "+N" เหนือหัวผู้เล่น (ซ่อนไว้ก่อน) ใช้กับสกิล Blood Frenzy ของ Shark | BattleActivity.updatePlayerOverlays ย้ายตามผู้เล่น
+        -->
+        <!-- ตัวเลขโบนัสดาเมจเหนือหัวผู้เล่น (Blood Frenzy) ตำแหน่งตามตัวผู้เล่นในโค้ด -->
+        <TextView
+            android:id="@+id/txtBonusDamage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:shadowColor="#000000"
+            android:shadowRadius="6"
+            android:textColor="#FF5252"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <!--
+          [barPlayerCharge] หลอดชาร์จเหนือหัวผู้เล่น (ซ่อนไว้ก่อน) ใช้ตอนชาร์จ Railgun ของ Electric Eel | max=1000 โค้ดตั้ง progress 0-1000
+        -->
+        <!-- หลอดชาร์จเหนือหัวผู้เล่น (Railgun) ตำแหน่งตามตัวผู้เล่นในโค้ด -->
+        <ProgressBar
+            android:id="@+id/barPlayerCharge"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="80dp"
+            android:layout_height="9dp"
+            android:max="1000"
+            android:progress="0"
+            android:progressBackgroundTint="#55000000"
+            android:progressTint="#00E5FF"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <!--
+      [Layer 2: มุมบนซ้าย] รูปโปรไฟล์กลมในการ์ด (cardProfile 48dp) | ป้าย HP | หลอดเลือด barHp (120dp สีเขียว) | ตัวเลข txtHpValue ทับกลางหลอด
+        barHp max/progress ตั้งตามฮีโร่ใน BattleActivity.onCreate (ค่า 100/80 ใน XML เป็นแค่ตั้งต้น)
+    -->
+    <!-- ============================================== -->
+    <!-- Layer 2: UI ด้านบนซ้าย (รูปโปรไฟล์ + หลอด HP) -->
+    <!-- ============================================== -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardProfile"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="16dp"
+        app:cardCornerRadius="24dp"
+        app:cardBackgroundColor="#34495E"
+        app:cardElevation="4dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:id="@+id/imgProfile"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/hero_1" />
+    </androidx.cardview.widget.CardView>
+
+    <!--
+      [txtHpLabel] ป้ายคำว่า HP อยู่ขวาของรูปโปรไฟล์
+    -->
+    <TextView
+        android:id="@+id/txtHpLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:text="HP"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toEndOf="@id/cardProfile"
+        app:layout_constraintTop_toTopOf="@id/cardProfile" />
+
+    <!--
+      [barHp] หลอดเลือด: progressTint = สีส่วนที่เหลือ (#2ECC71 เขียว) , progressBackgroundTint = สีพื้นหลังหลอด
+        อยากเปลี่ยนสีหลอดเลือดแก้ progressTint
+    -->
+    <ProgressBar
+        android:id="@+id/barHp"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="120dp"
+        android:layout_height="16dp"
+        android:layout_marginTop="2dp"
+        android:max="100"
+        android:progress="80"
+        android:progressBackgroundTint="#333333"
+        android:progressTint="#2ECC71"
+        app:layout_constraintStart_toStartOf="@id/txtHpLabel"
+        app:layout_constraintTop_toBottomOf="@id/txtHpLabel" />
+
+    <!--
+      [txtHpValue] ตัวเลขเลือด "75/100" อยู่ทับกลางหลอด ใส่เงาดำให้อ่านง่าย (BattleActivity.updateHpUI เขียนข้อความ)
+    -->
+    <!-- ตัวเลข HP ทับกลางหลอด เช่น 75/100 -->
+    <TextView
+        android:id="@+id/txtHpValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:shadowColor="#000000"
+        android:shadowRadius="3"
+        android:text="100/100"
+        android:textColor="#FFFFFF"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="@id/barHp"
+        app:layout_constraintEnd_toEndOf="@id/barHp"
+        app:layout_constraintStart_toStartOf="@id/barHp"
+        app:layout_constraintTop_toTopOf="@id/barHp" />
+
+    <!--
+      [txtBuffs] ข้อความบัฟไอเทมที่ติดอยู่ (โล่/เร็ว/คูลดาวน์/ดาเมจ) ใต้หลอดเลือด ซ่อนไว้ก่อน BattleActivity.updateItems เขียน
+    -->
+    <!-- สถานะบัฟจากไอเทม (โล่/เร็ว/คูลดาวน์/ดาเมจ) ใต้หลอดเลือด: อัปเดตผ่าน BattleActivity -->
+    <TextView
+        android:id="@+id/txtBuffs"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:shadowColor="#000000"
+        android:shadowRadius="3"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        app:layout_constraintStart_toStartOf="@id/barHp"
+        app:layout_constraintTop_toBottomOf="@id/barHp" />
+
+    <!--
+      [txtStageInfo] "ด่าน N | ศัตรูเหลือ X ตัว" กลางบน ใต้หลอด Stack พื้นหลังดำโปร่ง (BattleActivity.updateStageInfo เขียน)
+    -->
+    <!-- ด่านที่กำลังเล่น + จำนวนศัตรูที่เหลือ (ใต้หลอด Stack ตรงกลางบน) -->
+    <TextView
+        android:id="@+id/txtStageInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:background="#66000000"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="3dp"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/layoutStack" />
+
+    <!--
+      [layoutBossBar] หลอดเลือดบอส (เฉพาะด่าน 5) ซ่อนไว้ก่อน : KrakenBoss เป็นคนเปิดและอัปเดต
+        ประกอบด้วย txtBossName (ชื่อ) , barBossHp (หลอดสีม่วง) , txtBossHp (ตัวเลข) | marginHorizontal 240dp ทำให้หลอดไม่กว้างเกินไป
+    -->
+    <!-- หลอดเลือดบอส (ด่าน 5) ตรงกลางบน ใต้ข้อความด่าน: KrakenBoss เป็นคนเปิดและอัปเดต -->
+    <LinearLayout
+        android:id="@+id/layoutBossBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="240dp"
+        android:layout_marginTop="2dp"
+        android:background="#66000000"
+        android:orientation="vertical"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="2dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/txtStageInfo">
+
+        <TextView
+            android:id="@+id/txtBossName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="#B388FF"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+
+        <ProgressBar
+            android:id="@+id/barBossHp"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="9dp"
+            android:progressTint="#AA00FF" />
+
+        <TextView
+            android:id="@+id/txtBossHp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="#FFFFFF"
+            android:textSize="9sp" />
+    </LinearLayout>
+
+    <!--
+      [Layer 3: หลอด Stack] layoutStack กลางบน: ข้อความ "Stack" + หลอด barStack (สีส้ม 90dp) + ข้อความ txtStackCount
+        max ของ barStack ถูกตั้งตามฮีโร่ (10/13/16/20 ฯลฯ) ใน BattleActivity.onCreate ข้อความ "0/10" ใน XML เป็นค่าตั้งต้น
+        [ข้อสังเกต] ข้อความสอนเล่นด้านล่างเขียนว่า "เต็ม 10" แต่จำนวนจริงขึ้นกับฮีโร่แต่ละตัว
+    -->
+    <!-- ============================================== -->
+    <!-- Layer 3: UI ด้านบนตรงกลาง (หลอด Stack) -->
+    <!-- ============================================== -->
+    <LinearLayout
+        android:id="@+id/layoutStack"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:background="#66000000"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="6dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="6dp"
+            android:text="Stack"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <ProgressBar
+            android:id="@+id/barStack"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="90dp"
+            android:layout_height="12dp"
+            android:max="10"
+            android:progress="0"
+            android:progressBackgroundTint="#333333"
+            android:progressTint="#F39C12" />
+
+        <TextView
+            android:id="@+id/txtStackCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="0/10"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <!--
+      [Layer 4: ปุ่มหยุดเกม] btnBack มุมขวาบน ใช้ไอคอน ic_media_pause ของระบบ (ชื่อ id เดิมคือ Back แต่ตอนนี้ทำหน้าที่ "หยุดเกม" เปิดเมนู)
+    -->
+    <!-- ============================================== -->
+    <!-- Layer 4: UI ด้านบนขวา (ปุ่มย้อนกลับ Back) -->
+    <!-- ============================================== -->
+    <ImageButton
+        android:id="@+id/btnBack"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="20dp"
+        android:background="?selectableItemBackgroundBorderless"
+        android:padding="8dp"
+        android:scaleType="fitCenter"
+        android:contentDescription="หยุดเกม"
+        android:src="@android:drawable/ic_media_pause"
+        app:tint="#FFFFFF"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!--
+      [Layer 5: จอยสติ๊ก] joystickBase ฐานวงกลม 100dp จางครึ่ง (alpha 0.4) + joystickKnob ปุ่มกลมสีขาว 42dp อยู่กึ่งกลาง
+        BattleActivity ตั้ง touch listener ที่ joystickBase และเลื่อน knob ตามนิ้ว
+        [แก้ยังไง] ขยายจอยสติ๊ก: เพิ่ม 100dp และปรับ knob ตามสัดส่วน | ย้ายตำแหน่ง: แก้ layout_marginStart/Bottom
+    -->
+    <!-- ============================================== -->
+    <!-- Layer 5: UI ด้านล่างซ้าย (Joystick) -->
+    <!-- ============================================== -->
+    <FrameLayout
+        android:id="@+id/joystickBase"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginBottom="24dp"
+        android:alpha="0.4"
+        android:background="@drawable/ic_launcher_background"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <View
+            android:id="@+id/joystickKnob"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_gravity="center"
+            android:background="#FFFFFF" />
+    </FrameLayout>
+
+    <!--
+      [Layer 6: ปุ่มสกิล] layoutSkills จัดปุ่ม Skill 1 (แดง #E74C3C) กับ Skill 2 (น้ำเงิน #2980B9) เรียงแนวนอน มุมขวาล่าง
+        ปุ่มกลม 84dp (cornerRadius 42dp = ครึ่งหนึ่งของขนาด) ข้อความบนปุ่มถูกแทนด้วยไอคอน+ชื่อสกิลของฮีโร่ใน onCreate
+        ระหว่างคูลดาวน์ข้อความเป็นตัวเลขวินาที (startCooldownUI)
+    -->
+    <!-- ============================================== -->
+    <!-- Layer 6: UI ด้านล่างขวา (ปุ่ม Skill 1 และ Skill 2) -->
+    <!-- ============================================== -->
+    <LinearLayout
+        android:id="@+id/layoutSkills"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="24dp"
+        android:gravity="center"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- ปุ่ม Skill 1 -->
+        <Button
+            android:id="@+id/btnSkill1"
+            android:layout_width="84dp"
+            android:layout_height="84dp"
+            android:layout_marginEnd="12dp"
+            android:backgroundTint="#E74C3C"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:padding="2dp"
+            android:text="Skill 1"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            app:cornerRadius="42dp" />
+
+        <!-- ปุ่ม Skill 2 -->
+        <Button
+            android:id="@+id/btnSkill2"
+            android:layout_width="84dp"
+            android:layout_height="84dp"
+            android:backgroundTint="#2980B9"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:padding="2dp"
+            android:text="Skill 2"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            app:cornerRadius="42dp" />
+    </LinearLayout>
+
+    <!--
+      [Layer 7: ปุ่ม Ultimate] btnUltimate ซ่อนไว้ก่อน (gone) จะโชว์เฉพาะฮีโร่ที่ usesUltimateButton() = true
+        ตั้งต้น: จาง 0.4 และ enabled=false (ล็อก "🔒 ULT") ปลดล็อกเมื่อตอบ quiz ถูก (BattleActivity.updateUltimateButton)
+        วางไว้เหนือปุ่มสกิล (constraint Bottom_toTopOf layoutSkills)
+    -->
+    <!-- ============================================== -->
+    <!-- Layer 7: ปุ่ม Ultimate (อยู่เหนือปุ่ม Skill) -->
+    <!-- ล็อกไว้จนกว่าสแตกเต็ม + ตอบ quiz ถูก -->
+    <!-- ซ่อนอัตโนมัติสำหรับฮีโร่ที่ยังใช้ Ultimate อัตโนมัติ -->
+    <!-- ============================================== -->
+    <Button
+        android:id="@+id/btnUltimate"
+        android:layout_width="76dp"
+        android:layout_height="76dp"
+        android:layout_marginBottom="12dp"
+        android:alpha="0.4"
+        android:backgroundTint="#F39C12"
+        android:enabled="false"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:padding="0dp"
+        android:text="🔒 ULT"
+        android:textColor="#FFFFFF"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        app:cornerRadius="38dp"
+        app:layout_constraintBottom_toTopOf="@id/layoutSkills"
+        app:layout_constraintEnd_toEndOf="@id/layoutSkills"
+        app:layout_constraintStart_toStartOf="@id/layoutSkills" />
+
+    <!--
+      [layoutUltTimer] ข้อความ+หลอดนับถอยหลัง Ultimate ที่มีเวลา (Circuit Link, Blood Frenzy) อยู่เหนือปุ่ม ULT ซ่อนไว้ก่อน
+        BattleActivity.showUltimateDuration / updateUltimateTimerUI ควบคุม
+    -->
+    <!-- ============================================== -->
+    <!-- หลอดเวลาที่เหลือของ Ultimate แบบมีเวลา (อยู่เหนือปุ่ม ULT) -->
+    <!-- ============================================== -->
+    <LinearLayout
+        android:id="@+id/layoutUltTimer"
+        android:layout_width="96dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="4dp"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/btnUltimate"
+        app:layout_constraintEnd_toEndOf="@id/btnUltimate"
+        app:layout_constraintStart_toStartOf="@id/btnUltimate">
+
+        <TextView
+            android:id="@+id/txtUltTimer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:shadowColor="#000000"
+            android:shadowRadius="4"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <ProgressBar
+            android:id="@+id/barUltTime"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="9dp"
+            android:max="1000"
+            android:progress="1000"
+            android:progressBackgroundTint="#55000000"
+            android:progressTint="#F39C12" />
+    </LinearLayout>
+
+    <!--
+      [overlayQuiz = หน้าต่างโจทย์ quiz] พื้นหลังเกือบทึบ #F00A1420 ซ่อนไว้ก่อน QuizManager (คนที่ 5) ควบคุมทุก View ในนี้
+        ประกอบด้วย (เรียงบนลงล่าง):
+          txtQuizTitle (ชื่อวิชา) + txtQuizTime (เวลา) | barQuizTime (หลอดเวลา)
+          ScrollView: txtQuizQuestion (โจทย์) + txtQuizFormula (บรรทัดสูตร ซ่อนถ้าไม่มี)
+          txtQuizFeedback (ข้อความถูก/ผิด หลังตอบ) | ปุ่มตัวเลือก 4 ปุ่ม btnQuizOpt1..4 เรียงเป็น 2 แถว x 2 ปุ่ม
+          txtQuizCountdown เลข 3-2-1 ขนาดใหญ่กลางจอ ก่อนเปิดโจทย์
+        [แก้ยังไง] เปลี่ยนขนาดตัวอักษรโจทย์: txtQuizQuestion android:textSize | เปลี่ยนความสูงปุ่มตัวเลือก: minHeight
+        [ห้ามเปลี่ยน id] ทุก id ในบล็อกนี้ QuizManager ผูกไว้ใน constructor
+    -->
+    <!-- ============================================== -->
+    <!-- Overlay: โจทย์ Quiz (แทน AlertDialog) -->
+    <!-- ============================================== -->
+    <FrameLayout
+        android:id="@+id/overlayQuiz"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#F00A1420"
+        android:clickable="true"
+        android:elevation="30dp"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/layoutQuizContent"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:paddingHorizontal="28dp"
+            android:paddingVertical="14dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/txtQuizTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="#00ADB5"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/txtQuizTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#F39C12"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <ProgressBar
+                android:id="@+id/barQuizTime"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="10dp"
+                android:layout_marginTop="6dp"
+                android:max="1000"
+                android:progress="1000"
+                android:progressBackgroundTint="#333333"
+                android:progressTint="#F39C12" />
+
+            <!-- โจทย์ยาวแค่ไหนก็ไม่ถูกตัด: ตัวอักษรขึ้นบรรทัดใหม่เอง และเลื่อนได้ถ้ายังเกินพื้นที่ -->
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginTop="10dp"
+                android:layout_weight="1"
+                android:fillViewport="true">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/txtQuizQuestion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="#FFFFFF"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+
+                    <!-- บรรทัดสูตร (ขึ้นต้นด้วย "สูตร:") แยกบรรทัดใต้โจทย์ ขึ้นบรรทัดใหม่เองถ้ายาว ไม่ถูกตัด -->
+                    <TextView
+                        android:id="@+id/txtQuizFormula"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textColor="#F1C40F"
+                        android:textSize="18sp"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </ScrollView>
+
+            <TextView
+                android:id="@+id/txtQuizFeedback"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginVertical="6dp"
+                android:gravity="center"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnQuizOpt1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:minHeight="52dp"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+
+                <Button
+                    android:id="@+id/btnQuizOpt2"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:minHeight="52dp"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnQuizOpt3"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:minHeight="52dp"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+
+                <Button
+                    android:id="@+id/btnQuizOpt4"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:minHeight="52dp"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- เลข 3-2-1 นับถอยหลังก่อนเปิดโจทย์ -->
+        <TextView
+            android:id="@+id/txtQuizCountdown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:shadowColor="#000000"
+            android:shadowRadius="12"
+            android:textColor="#F39C12"
+            android:textSize="110sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <!--
+      [overlayPause = เมนูหยุดเกมชั่วคราว] พื้นหลังดำโปร่ง #CC000000 กล่องกลางจอมี 2 คอลัมน์
+        คอลัมน์ซ้าย (240dp): หัวข้อ + ปุ่มเล่นต่อ (btnPauseResume เขียว) / เริ่มด่านใหม่ (btnPauseRestart น้ำเงิน) / ออกไปหน้าเลือกด่าน (btnPauseExit แดง)
+        คอลัมน์ขวา (300dp): "ไอเทมในเกม" + ScrollView ที่มี layoutItemGuide (แถวไอเทมสร้างจากโค้ด BattleActivity.buildItemGuide ไม่ต้องใส่ใน XML)
+        โค้ดที่ผูกปุ่ม: BattleActivity.setupOverlays
+    -->
+    <!-- ============================================== -->
+    <!-- Overlay: เมนูหยุดเกมชั่วคราว -->
+    <!-- ============================================== -->
+    <FrameLayout
+        android:id="@+id/overlayPause"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#CC000000"
+        android:clickable="true"
+        android:elevation="30dp"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:background="#1A252C"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="16dp">
+
+          <!-- คอลัมน์ซ้าย: ปุ่มเมนูหยุดเกม -->
+          <LinearLayout
+            android:layout_width="240dp"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⏸ หยุดเกมชั่วคราว"
+                android:textColor="#FFFFFF"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnPauseResume"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:backgroundTint="#27AE60"
+                android:text="เล่นต่อ"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btnPauseRestart"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:backgroundTint="#2980B9"
+                android:text="เริ่มด่านใหม่"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btnPauseExit"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:backgroundTint="#C0392B"
+                android:text="ออกไปหน้าเลือกด่าน"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+          </LinearLayout>
+
+          <!-- คอลัมน์ขวา: คู่มือไอเทม (แถวสร้างจากโค้ดตาม ItemManager.Type) เลื่อนดูได้ -->
+          <LinearLayout
+            android:layout_width="300dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ไอเทมในเกม"
+                android:textColor="#F39C12"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="190dp"
+                android:layout_marginTop="6dp"
+                android:fadeScrollbars="false">
+
+                <LinearLayout
+                    android:id="@+id/layoutItemGuide"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </ScrollView>
+          </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
+
+    <!--
+      [overlayTutorial = หน้าสอนเล่น] แสดงครั้งแรกที่เข้าด่าน 1 (BattleActivity.showTutorialIfFirstTime) มีหัวข้อ "วิธีเล่น" + ข้อความอธิบายยาวใน ScrollView + ปุ่ม btnTutorialOk
+        [แก้ข้อความสอนเล่น] แก้ android:text ของ TextView ใน ScrollView (\n = ขึ้นบรรทัดใหม่)
+    -->
+    <!-- ============================================== -->
+    <!-- Overlay: สอนเล่น (แสดงครั้งแรกที่เข้าด่าน 1) -->
+    <!-- ============================================== -->
+    <FrameLayout
+        android:id="@+id/overlayTutorial"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#E6000000"
+        android:clickable="true"
+        android:elevation="30dp"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:paddingHorizontal="40dp"
+            android:paddingVertical="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:text="📖 วิธีเล่น"
+                android:textColor="#F39C12"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginVertical="10dp"
+                android:layout_weight="1">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:lineSpacingExtra="6dp"
+                    android:text="🕹️ จอยสติ๊ก (มุมซ้ายล่าง): ลากเพื่อว่ายน้ำ ทิศที่ลากคือทิศที่สกิลจะพุ่งหรือยิงไป\n\n🔴🔵 ปุ่มสกิล 1 และ 2 (มุมขวาล่าง): โจมตีศัตรู แต่ละปุ่มมีคูลดาวน์สั้นๆ ชื่อและไอคอนบนปุ่มบอกว่าเป็นสกิลอะไร\n\n📊 หลอด Stack (ตรงกลางบน): ทุกครั้งที่สกิลโดนศัตรู หลอดจะเพิ่ม 1 เมื่อเต็ม 10 จะมีโจทย์ขึ้นมา\n\n❓ โจทย์ Quiz: ตอบถูกจะปลดล็อกปุ่ม ULT สกิลพิเศษที่แรงที่สุด ตอบผิดหรือหมดเวลา Stack จะรีเซ็ต\n\n❤️ HP (มุมซ้ายบน): ถ้า HP หมดจะแพ้ ฆ่าศัตรูให้หมดเพื่อชนะด่าน"
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp" />
+            </ScrollView>
+
+            <Button
+                android:id="@+id/btnTutorialOk"
+                android:layout_width="200dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:backgroundTint="#27AE60"
+                android:text="เข้าใจแล้ว เริ่มเลย!"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!--
+      [overlayResult = หน้าชนะ/แพ้] กล่องกลางจอกว้าง 320dp: txtResultTitle (หัวข้อ), txtResultStars (ดาว ซ่อนเมื่อแพ้), txtResultSub (ข้อความย่อย)
+        และปุ่ม 3 ปุ่ม btnResult1..3 (xml ไม่มีข้อความปุ่ม BattleActivity.showResultOverlay ใส่ให้ตามชนะ/แพ้ และซ่อนปุ่มที่ไม่ใช้)
+    -->
+    <!-- ============================================== -->
+    <!-- Overlay: หน้าจอชนะ / แพ้ (แทน AlertDialog) -->
+    <!-- ============================================== -->
+    <FrameLayout
+        android:id="@+id/overlayResult"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#D9000000"
+        android:clickable="true"
+        android:elevation="30dp"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="320dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:background="#1A252C"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:id="@+id/txtResultTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFFF"
+                android:textSize="26sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/txtResultStars"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textColor="#F1C40F"
+                android:textSize="30sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/txtResultSub"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:textColor="#BDC3C7"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/btnResult1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:backgroundTint="#27AE60"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btnResult2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:backgroundTint="#2980B9"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btnResult3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:backgroundTint="#7F8C8D"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+        </LinearLayout>
+    </FrameLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

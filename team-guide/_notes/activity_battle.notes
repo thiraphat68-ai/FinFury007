@@ -1,0 +1,121 @@
+@@ 2 | ConstraintLayout
+=====================================================================================
+[คนที่ 3 - View]  ไฟล์ layout: activity_battle.xml  (817 บรรทัด)
+ตำแหน่งไฟล์จริง: app/src/main/res/layout/activity_battle.xml
+โค้ดที่ควบคุมไฟล์นี้: BattleActivity.java (คนที่ 1 + คนที่ 3) และ QuizManager.java (คนที่ 5 ใช้ overlayQuiz)
+สำเนานี้เพิ่มคอมเมนต์ โค้ดเหมือนไฟล์จริงทุกตัวอักษร
+
+[ไฟล์นี้คืออะไร]
+  หน้าตาของ "ฉากต่อสู้" ทั้งหมด ซ้อนเป็นชั้น (layer) ใน ConstraintLayout ตัวเดียว ชั้นที่อยู่ท้ายไฟล์จะวาดทับชั้นก่อนหน้า:
+    Layer 0  imgBattleBackground  ภาพพื้นหลังด่าน
+    Layer 1  gameArea             พื้นที่เล่น (ผู้เล่น + ศัตรูและเอฟเฟกต์ที่โค้ดเพิ่มเข้ามา)
+    Layer 2  มุมบนซ้าย            รูปโปรไฟล์ + หลอดเลือด + ตัวเลข HP + ข้อความบัฟ + ข้อความด่าน + หลอดบอส
+    Layer 3  layoutStack          หลอด Stack กลางบน
+    Layer 4  btnBack              ปุ่มหยุดเกม มุมขวาบน
+    Layer 5  joystickBase         จอยสติ๊ก มุมซ้ายล่าง
+    Layer 6  layoutSkills         ปุ่ม Skill 1, Skill 2 มุมขวาล่าง
+    Layer 7  btnUltimate + layoutUltTimer  ปุ่ม ULT และหลอดเวลา Ultimate
+    Overlay  overlayQuiz / overlayPause / overlayTutorial / overlayResult  (หน้าต่างทับเต็มจอ ซ่อนไว้ก่อน visibility="gone")
+  overlay ทุกตัวมี clickable+focusable+elevation 30dp เพื่อ "ดูดการสัมผัส" ไม่ให้ทะลุไปกดจอยสติ๊กด้านล่าง
+
+[ตัวอย่างการแก้ที่พบบ่อย]
+  - ย้าย/ขยายจอยสติ๊กหรือปุ่มสกิล: แก้ layout_width/height และ layout_margin ของบล็อกนั้น
+  - เปลี่ยนสีปุ่มสกิล: android:backgroundTint | เปลี่ยนขนาดตัวอักษรบนปุ่ม: android:textSize
+  - เพิ่ม View ใหม่ในจอ: ใส่ id ใหม่ในไฟล์นี้ แล้ว findViewById ใน BattleActivity.onCreate
+  - ห้ามเปลี่ยน/ลบ id ที่ Java ใช้อยู่ (ค้นหาด้วย R.id.ชื่อ ใน BattleActivity.java / QuizManager.java / KrakenBoss.java)
+=====================================================================================
+
+@@ 10 | ====
+[Layer 0: ภาพพื้นหลังด่าน] imgBattleBackground รูปตั้งต้น bg_level_video แต่ BattleActivity.setupStageBackground เปลี่ยนเป็น bg_stage_N ตามด่าน
+  scaleType centerCrop = ขยายเต็มจอโดยตัดส่วนเกิน
+
+@@ 24 | ====
+[Layer 1: พื้นที่เล่น] gameArea เป็น FrameLayout เต็มจอ ศัตรู ลูกกระสุน เอฟเฟกต์ถูก addView ลงในนี้ด้วยโค้ด Java (พิกัดอิงกล่องนี้)
+
+@@ 32 | ตัวละครผู้เล่น
+[playerContainer = กล่องหุ้มผู้เล่น] ชื่อฮีโร่ (txtPlayerName ตัวเล็กสีเขียว) อยู่เหนือรูปปลา (imgPlayer 70dp ตั้งต้น)
+  ตำแหน่งเริ่ม: กึ่งกลางแนวตั้ง ห่างซ้าย 80dp | โค้ดเลื่อนตัวด้วย translationX/Y | ขนาดรูปถูก setupHeroAndSkills ปรับรายฮีโร่
+
+@@ 56 | ศัตรูบอท
+[หมายเหตุเดิม] ศัตรูไม่ได้อยู่ใน XML โค้ด spawnStageEnemies สร้างให้
+
+@@ 58 | ตัวเลขโบนัสดาเมจ
+[txtBonusDamage] ตัวเลข "+N" เหนือหัวผู้เล่น (ซ่อนไว้ก่อน) ใช้กับสกิล Blood Frenzy ของ Shark | BattleActivity.updatePlayerOverlays ย้ายตามผู้เล่น
+
+@@ 70 | หลอดชาร์จ
+[barPlayerCharge] หลอดชาร์จเหนือหัวผู้เล่น (ซ่อนไว้ก่อน) ใช้ตอนชาร์จ Railgun ของ Electric Eel | max=1000 โค้ดตั้ง progress 0-1000
+
+@@ 83 | ====
+[Layer 2: มุมบนซ้าย] รูปโปรไฟล์กลมในการ์ด (cardProfile 48dp) | ป้าย HP | หลอดเลือด barHp (120dp สีเขียว) | ตัวเลข txtHpValue ทับกลางหลอด
+  barHp max/progress ตั้งตามฮีโร่ใน BattleActivity.onCreate (ค่า 100/80 ใน XML เป็นแค่ตั้งต้น)
+
+@@ 106 | txtHpLabel
+[txtHpLabel] ป้ายคำว่า HP อยู่ขวาของรูปโปรไฟล์
+
+@@ 118 | barHp
+[barHp] หลอดเลือด: progressTint = สีส่วนที่เหลือ (#2ECC71 เขียว) , progressBackgroundTint = สีพื้นหลังหลอด
+  อยากเปลี่ยนสีหลอดเลือดแก้ progressTint
+
+@@ 131 | ตัวเลข HP
+[txtHpValue] ตัวเลขเลือด "75/100" อยู่ทับกลางหลอด ใส่เงาดำให้อ่านง่าย (BattleActivity.updateHpUI เขียนข้อความ)
+
+@@ 147 | สถานะบัฟ
+[txtBuffs] ข้อความบัฟไอเทมที่ติดอยู่ (โล่/เร็ว/คูลดาวน์/ดาเมจ) ใต้หลอดเลือด ซ่อนไว้ก่อน BattleActivity.updateItems เขียน
+
+@@ 162 | ด่านที่กำลังเล่น
+[txtStageInfo] "ด่าน N | ศัตรูเหลือ X ตัว" กลางบน ใต้หลอด Stack พื้นหลังดำโปร่ง (BattleActivity.updateStageInfo เขียน)
+
+@@ 178 | หลอดเลือดบอส
+[layoutBossBar] หลอดเลือดบอส (เฉพาะด่าน 5) ซ่อนไว้ก่อน : KrakenBoss เป็นคนเปิดและอัปเดต
+  ประกอบด้วย txtBossName (ชื่อ) , barBossHp (หลอดสีม่วง) , txtBossHp (ตัวเลข) | marginHorizontal 240dp ทำให้หลอดไม่กว้างเกินไป
+
+@@ 219 | ====
+[Layer 3: หลอด Stack] layoutStack กลางบน: ข้อความ "Stack" + หลอด barStack (สีส้ม 90dp) + ข้อความ txtStackCount
+  max ของ barStack ถูกตั้งตามฮีโร่ (10/13/16/20 ฯลฯ) ใน BattleActivity.onCreate ข้อความ "0/10" ใน XML เป็นค่าตั้งต้น
+  [ข้อสังเกต] ข้อความสอนเล่นด้านล่างเขียนว่า "เต็ม 10" แต่จำนวนจริงขึ้นกับฮีโร่แต่ละตัว
+
+@@ 265 | ====
+[Layer 4: ปุ่มหยุดเกม] btnBack มุมขวาบน ใช้ไอคอน ic_media_pause ของระบบ (ชื่อ id เดิมคือ Back แต่ตอนนี้ทำหน้าที่ "หยุดเกม" เปิดเมนู)
+
+@@ 283 | ====
+[Layer 5: จอยสติ๊ก] joystickBase ฐานวงกลม 100dp จางครึ่ง (alpha 0.4) + joystickKnob ปุ่มกลมสีขาว 42dp อยู่กึ่งกลาง
+  BattleActivity ตั้ง touch listener ที่ joystickBase และเลื่อน knob ตามนิ้ว
+  [แก้ยังไง] ขยายจอยสติ๊ก: เพิ่ม 100dp และปรับ knob ตามสัดส่วน | ย้ายตำแหน่ง: แก้ layout_marginStart/Bottom
+
+@@ 305 | ====
+[Layer 6: ปุ่มสกิล] layoutSkills จัดปุ่ม Skill 1 (แดง #E74C3C) กับ Skill 2 (น้ำเงิน #2980B9) เรียงแนวนอน มุมขวาล่าง
+  ปุ่มกลม 84dp (cornerRadius 42dp = ครึ่งหนึ่งของขนาด) ข้อความบนปุ่มถูกแทนด้วยไอคอน+ชื่อสกิลของฮีโร่ใน onCreate
+  ระหว่างคูลดาวน์ข้อความเป็นตัวเลขวินาที (startCooldownUI)
+
+@@ 353 | ====
+[Layer 7: ปุ่ม Ultimate] btnUltimate ซ่อนไว้ก่อน (gone) จะโชว์เฉพาะฮีโร่ที่ usesUltimateButton() = true
+  ตั้งต้น: จาง 0.4 และ enabled=false (ล็อก "🔒 ULT") ปลดล็อกเมื่อตอบ quiz ถูก (BattleActivity.updateUltimateButton)
+  วางไว้เหนือปุ่มสกิล (constraint Bottom_toTopOf layoutSkills)
+
+@@ 379 | หลอดเวลาที่เหลือ
+[layoutUltTimer] ข้อความ+หลอดนับถอยหลัง Ultimate ที่มีเวลา (Circuit Link, Blood Frenzy) อยู่เหนือปุ่ม ULT ซ่อนไว้ก่อน
+  BattleActivity.showUltimateDuration / updateUltimateTimerUI ควบคุม
+
+@@ 415 | Overlay: โจทย์ Quiz
+[overlayQuiz = หน้าต่างโจทย์ quiz] พื้นหลังเกือบทึบ #F00A1420 ซ่อนไว้ก่อน QuizManager (คนที่ 5) ควบคุมทุก View ในนี้
+  ประกอบด้วย (เรียงบนลงล่าง):
+    txtQuizTitle (ชื่อวิชา) + txtQuizTime (เวลา) | barQuizTime (หลอดเวลา)
+    ScrollView: txtQuizQuestion (โจทย์) + txtQuizFormula (บรรทัดสูตร ซ่อนถ้าไม่มี)
+    txtQuizFeedback (ข้อความถูก/ผิด หลังตอบ) | ปุ่มตัวเลือก 4 ปุ่ม btnQuizOpt1..4 เรียงเป็น 2 แถว x 2 ปุ่ม
+    txtQuizCountdown เลข 3-2-1 ขนาดใหญ่กลางจอ ก่อนเปิดโจทย์
+  [แก้ยังไง] เปลี่ยนขนาดตัวอักษรโจทย์: txtQuizQuestion android:textSize | เปลี่ยนความสูงปุ่มตัวเลือก: minHeight
+  [ห้ามเปลี่ยน id] ทุก id ในบล็อกนี้ QuizManager ผูกไว้ใน constructor
+
+@@ 586 | Overlay: เมนูหยุด
+[overlayPause = เมนูหยุดเกมชั่วคราว] พื้นหลังดำโปร่ง #CC000000 กล่องกลางจอมี 2 คอลัมน์
+  คอลัมน์ซ้าย (240dp): หัวข้อ + ปุ่มเล่นต่อ (btnPauseResume เขียว) / เริ่มด่านใหม่ (btnPauseRestart น้ำเงิน) / ออกไปหน้าเลือกด่าน (btnPauseExit แดง)
+  คอลัมน์ขวา (300dp): "ไอเทมในเกม" + ScrollView ที่มี layoutItemGuide (แถวไอเทมสร้างจากโค้ด BattleActivity.buildItemGuide ไม่ต้องใส่ใน XML)
+  โค้ดที่ผูกปุ่ม: BattleActivity.setupOverlays
+
+@@ 685 | Overlay: สอนเล่น
+[overlayTutorial = หน้าสอนเล่น] แสดงครั้งแรกที่เข้าด่าน 1 (BattleActivity.showTutorialIfFirstTime) มีหัวข้อ "วิธีเล่น" + ข้อความอธิบายยาวใน ScrollView + ปุ่ม btnTutorialOk
+  [แก้ข้อความสอนเล่น] แก้ android:text ของ TextView ใน ScrollView (\n = ขึ้นบรรทัดใหม่)
+
+@@ 741 | Overlay: หน้าจอชนะ
+[overlayResult = หน้าชนะ/แพ้] กล่องกลางจอกว้าง 320dp: txtResultTitle (หัวข้อ), txtResultStars (ดาว ซ่อนเมื่อแพ้), txtResultSub (ข้อความย่อย)
+  และปุ่ม 3 ปุ่ม btnResult1..3 (xml ไม่มีข้อความปุ่ม BattleActivity.showResultOverlay ใส่ให้ตามชนะ/แพ้ และซ่อนปุ่มที่ไม่ใช้)

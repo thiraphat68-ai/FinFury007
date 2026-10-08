@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  =====================================================================================
+  [คนที่ 3 - View]  ไฟล์ layout: activity_settings.xml  (67 บรรทัด)
+  ตำแหน่งไฟล์จริง: app/src/main/res/layout/activity_settings.xml
+  โค้ดที่ควบคุม: SettingsActivity.java
+  สำเนานี้เพิ่มคอมเมนต์ โค้ดเหมือนไฟล์จริงทุกตัวอักษร
+
+  [ไฟล์นี้คืออะไร]
+    หน้าตั้งค่า: กล่องกลางจอ (กว้าง 360dp พื้นหลัง #1A252C) บนพื้นหลังสีเข้ม มีแถว: หัวข้อ / สวิตช์เสียง / ปุ่มรีเซ็ต / ปุ่มกลับ
+    [เพิ่มตัวเลือกใหม่] เพิ่มแถวใหม่ในกล่อง (คัดลอกแถว "เสียง") ใส่ id ใหม่ แล้วผูกใน SettingsActivity.onCreate
+  =====================================================================================
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0A1420"
+    tools:context=".SettingsActivity">
+
+    <!--
+      [กล่องตั้งค่า] LinearLayout แนวตั้ง กว้างคงที่ 360dp กึ่งกลางจอ padding 24dp
+    -->
+    <LinearLayout
+        android:layout_width="360dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="#1A252C"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <!--
+          [หัวข้อ "ตั้งค่า"] สีส้ม #F39C12 ตัวหนา 24sp กึ่งกลางแนวนอน
+        -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="⚙ ตั้งค่า"
+            android:textColor="#F39C12"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <!--
+          [แถวเสียง] ข้อความ "เสียง" (ยืดเต็มด้วย weight=1) อยู่ซ้าย และสวิตช์ switchSound อยู่ขวา
+        -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🔊 เสียง"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp" />
+
+            <!--
+              [switchSound] สวิตช์เปิด/ปิดเสียง สถานะเริ่มต้นและการบันทึกตั้งใน SettingsActivity (ผ่าน SoundManager)
+            -->
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchSound"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!--
+          [btnResetProgress] ปุ่มสีแดง "รีเซ็ตความคืบหน้า" กดแล้วขึ้นกล่องถามยืนยัน (ใน SettingsActivity)
+        -->
+        <Button
+            android:id="@+id/btnResetProgress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:backgroundTint="#C0392B"
+            android:text="🗑 รีเซ็ตความคืบหน้า"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
+
+        <!--
+          [btnSettingsBack] ปุ่ม "กลับ" สีฟ้าเขียว ปิดหน้านี้
+        -->
+        <Button
+            android:id="@+id/btnSettingsBack"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:backgroundTint="#00ADB5"
+            android:text="กลับ"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
+    </LinearLayout>
+</FrameLayout>

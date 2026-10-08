@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  =====================================================================================
+  [คนที่ 3 - View]  ไฟล์ layout: activity_select_stage.xml  (127 บรรทัด)
+  ตำแหน่งไฟล์จริง: app/src/main/res/layout/activity_select_stage.xml
+  โค้ดที่ควบคุม: SelectStageActivity.java (หน้าแยกแบบเก่า ปัจจุบันไม่มีโค้ดส่วนไหนเปิดหน้านี้ ดูหมายเหตุใน SelectStageActivity.java)
+  สำเนานี้เพิ่มคอมเมนต์ โค้ดเหมือนไฟล์จริงทุกตัวอักษร
+
+  [ไฟล์นี้คืออะไร]
+    หน้าเลือกด่านแบบแยก: พื้นหลังสีเข้ม #0A0E1A มีปุ่มน้ำวน 5 ปุ่มวางเรียงเป็น "บันไดเฉียง" จากซ้ายบนไปขวาล่าง
+    พร้อมป้ายดาวใต้แต่ละปุ่ม ตำแหน่งปุ่มใช้ bias (สัดส่วน 0-1 ของจอ) ไม่ใช้โซ่ จึงย้ายปุ่มแต่ละปุ่มอิสระได้
+      layout_constraintHorizontal_bias = ตำแหน่งแนวนอน (0 = ซ้ายสุด , 1 = ขวาสุด)
+      layout_constraintVertical_bias   = ตำแหน่งแนวตั้ง (0 = บนสุด , 1 = ล่างสุด)
+    [แก้ยังไง] ย้ายปุ่มด่านไหน แก้ค่า bias ของปุ่มนั้น (และผู้เล่นลากเองได้ในแอป ตำแหน่งที่ลากเก็บแยกใน SharedPreferences)
+  =====================================================================================
+-->
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0A0E1A"
+    tools:context=".SelectStageActivity">
+
+    <!--
+      [btnStage1] ปุ่มด่าน 1 ขนาด 80dp ไอคอนเขียว (ด่านแรกเปิดเสมอ) bias แนวนอน 0.15 แนวตั้ง 0.2 = ซ้ายบน
+        พื้นหลังเป็นคลื่นกดแบบ ripple ของระบบ (selectableItemBackgroundBorderless)
+        ไอคอนที่ใส่ใน XML เป็นค่าตั้งต้น SelectStageActivity.setupStageButton จะเปลี่ยนเป็นกุญแจถ้ายังล็อก
+    -->
+    <!-- ปุ่มด่าน 1 -->
+    <ImageButton
+        android:id="@+id/btnStage1"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Stage 1"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_whirlpool_green"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.15"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.2" />
+
+    <!--
+      [btnStage2] bias 0.32 / 0.35
+    -->
+    <!-- ปุ่มด่าน 2 -->
+    <ImageButton
+        android:id="@+id/btnStage2"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Stage 2"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_whirlpool_lock"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.32"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.35" />
+
+    <!--
+      [btnStage3] bias 0.5 / 0.5 = กลางจอ
+    -->
+    <!-- ปุ่มด่าน 3 -->
+    <ImageButton
+        android:id="@+id/btnStage3"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Stage 3"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_whirlpool_lock"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.5" />
+
+    <!--
+      [btnStage4] bias 0.68 / 0.65
+    -->
+    <!-- ปุ่มด่าน 4 -->
+    <ImageButton
+        android:id="@+id/btnStage4"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Stage 4"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_whirlpool_lock"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.68"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.65" />
+
+    <!--
+      [btnStage5] bias 0.85 / 0.8 = ขวาล่าง (หน้านี้ไม่ได้ทำให้ด่านบอสใหญ่กว่าด่านอื่น ต่างจากหน้าเลือกด่านใน activity_main.xml)
+    -->
+    <!-- ปุ่มด่าน 5 -->
+    <ImageButton
+        android:id="@+id/btnStage5"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Stage 5"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_whirlpool_lock"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.85"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.8" />
+
+    <!--
+      [txtStars1..5] ป้ายดาวใต้ปุ่มด่านทีละปุ่ม ผูกกึ่งกลางกับปุ่มของตัวเอง ใช้สไตล์ @style/StageStars (res/values/themes.xml)
+        SelectStageActivity.updateStageUnlocks เขียนข้อความดาว (★★☆) ตามข้อมูลใน GameProgress
+    -->
+    <!-- ดาวที่ทำได้ของแต่ละด่าน (ตั้งค่าใน SelectStageActivity) -->
+    <TextView
+        android:id="@+id/txtStars1"
+        style="@style/StageStars"
+        app:layout_constraintEnd_toEndOf="@id/btnStage1"
+        app:layout_constraintStart_toStartOf="@id/btnStage1"
+        app:layout_constraintTop_toBottomOf="@id/btnStage1" />
+
+    <TextView
+        android:id="@+id/txtStars2"
+        style="@style/StageStars"
+        app:layout_constraintEnd_toEndOf="@id/btnStage2"
+        app:layout_constraintStart_toStartOf="@id/btnStage2"
+        app:layout_constraintTop_toBottomOf="@id/btnStage2" />
+
+    <TextView
+        android:id="@+id/txtStars3"
+        style="@style/StageStars"
+        app:layout_constraintEnd_toEndOf="@id/btnStage3"
+        app:layout_constraintStart_toStartOf="@id/btnStage3"
+        app:layout_constraintTop_toBottomOf="@id/btnStage3" />
+
+    <TextView
+        android:id="@+id/txtStars4"
+        style="@style/StageStars"
+        app:layout_constraintEnd_toEndOf="@id/btnStage4"
+        app:layout_constraintStart_toStartOf="@id/btnStage4"
+        app:layout_constraintTop_toBottomOf="@id/btnStage4" />
+
+    <TextView
+        android:id="@+id/txtStars5"
+        style="@style/StageStars"
+        app:layout_constraintEnd_toEndOf="@id/btnStage5"
+        app:layout_constraintStart_toStartOf="@id/btnStage5"
+        app:layout_constraintTop_toBottomOf="@id/btnStage5" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

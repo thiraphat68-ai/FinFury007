@@ -1,0 +1,65 @@
+@@ 1 | package
+=====================================================================================
+[คนที่ 3 - View หน้าจอและการเปลี่ยนหน้า]  ไฟล์: SelectStageActivity.java  (168 บรรทัด)
+ตำแหน่งไฟล์จริง: app/src/main/java/com/example/finfury/SelectStageActivity.java
+หน้าตา (layout): app/src/main/res/layout/activity_select_stage.xml
+สำเนานี้เพิ่มคอมเมนต์ โค้ดเหมือนไฟล์จริงทุกตัวอักษร
+
+[ไฟล์นี้คืออะไร]
+  หน้าเลือกด่าน "แบบแยก Activity" (เวอร์ชันเก่า) มีปุ่มด่าน 5 ปุ่ม และมีความสามารถพิเศษ: "ลากไอคอนด่านไปวางที่ไหนก็ได้"
+  ตำแหน่งที่วางจำไว้ข้ามการเปิดแอป (SharedPreferences ชื่อ StageIconPositions) แตะเฉย ๆ = เข้าด่าน
+
+[สำคัญ - ข้อควรระวัง]
+  ไฟล์นี้ลงทะเบียนใน AndroidManifest.xml แล้ว แต่ "ไม่มีโค้ดส่วนไหนเปิดหน้านี้เลย"
+  (ค้นหา startActivity ... SelectStageActivity ไม่เจอ) เพราะหน้าเลือกด่านที่ใช้จริงถูกรวมไว้ใน MainActivity (layoutLevelSelect) แล้ว
+  จึงเป็นโค้ดสำรอง/ของเก่า ถ้าจะใช้: เปิดด้วย startActivity(new Intent(this, SelectStageActivity.class)) และส่ง HERO_ID มาด้วย
+
+[ผังไฟล์] ตัวแปรปุ่มด่าน -> onCreate -> onNewIntent -> onResume/onPause -> updateStageUnlocks -> setupStageButton
+          -> makeDraggable (ลากวาง) -> applyOffset -> startBattleStage
+=====================================================================================
+
+@@ 14 | public class SelectStageActivity
+[ส่วนหัวคลาส] extends BaseActivity = โหมดเต็มจอ
+
+@@ 16 | private ImageButton btnStage1
+[ปุ่มด่าน 5 ปุ่ม] ผูกจาก id ใน activity_select_stage.xml ที่ onCreate
+
+@@ 22 | private int currentHeroId
+[ฮีโร่ที่เลือกมา] อ่านจาก Intent (HERO_ID) ค่าเริ่มต้น 1 แล้วส่งต่อไป BattleActivity ตอนเข้าด่าน
+
+@@ 24 | @Override
+[onCreate] ตั้ง layout อ่าน HERO_ID และผูกปุ่มด่านทั้ง 5
+
+@@ 39 | @Override
+[onNewIntent] ถ้าหน้านี้ถูกเรียกซ้ำขณะเปิดอยู่ (Intent ใหม่) ให้อัปเดต Intent และค่า HERO_ID
+
+@@ 46 | @Override
+[onResume] เล่นเพลงเมนู แล้วอัปเดตกุญแจ/ดาว (เพราะอาจเพิ่งชนะด่านกลับมา)
+
+@@ 53 | @Override
+[onPause] หยุดเพลง
+
+@@ 59 | private void updateStageUnlocks
+[updateStageUnlocks] เขียนดาวที่ได้ใต้ปุ่มด่าน แล้วตั้งค่าปุ่มด่านทีละปุ่ม (ด่านที่ล็อก = ไอคอนกุญแจ)
+  [ข้อสังเกต] ไอคอนด่าน 5 ที่นี่ใช้น้ำวนน้ำเงินเหมือนด่านอื่น (ต่างจาก MainActivity ที่ใช้ไอคอนบอส)
+
+@@ 76 | private void setupStageButton
+[setupStageButton] ตั้งความโปร่งใส/ไอคอนตามว่าปลดล็อกหรือยัง และผูกการกด: ด่านที่เปิดอยู่เท่านั้นที่เข้าได้
+  แล้วทำให้ปุ่มลากได้ (makeDraggable)
+
+@@ 89 | ลากไอคอนด่าน
+[ลากไอคอนด่าน] ตำแหน่งที่วางเก็บเป็นหน่วย dp (ไม่ใช่พิกเซล) เพื่อให้ตรงแม้ความละเอียดจอเปลี่ยน
+
+@@ 94 | @SuppressLint
+[makeDraggable] ตั้ง touch listener บนไอคอนเพื่อแยก "แตะ" กับ "ลาก":
+  DOWN : จดตำแหน่งนิ้วและ translation เริ่มต้น คืน false เพื่อให้ปุ่มรับการกดต่อ (ถ้าไม่ลากจะเป็นคลิก)
+  MOVE : ถ้านิ้วขยับเกิน slop (ระยะที่ระบบถือว่าเป็นการลาก) จึงเริ่มลาก ยกเลิกสถานะกด และห้ามพ่อแย่งเหตุการณ์
+         คำนวณตำแหน่งใหม่และบีบไม่ให้ออกนอกจอ แล้ว applyOffset (ย้ายทั้งไอคอนและป้ายดาวด้วย)
+  UP/CANCEL : ถ้ากำลังลากอยู่ ให้บันทึกตำแหน่งลง SharedPreferences และคืน true (กลืนเหตุการณ์ ไม่ให้นับเป็นคลิกเข้าด่าน)
+  [แก้ยังไง] อยากปิดการลาก: ลบบรรทัด makeDraggable(...) ใน setupStageButton
+
+@@ 152 | ย้ายไอคอนพร้อมป้ายดาว
+[applyOffset] ย้าย (translation) ทั้งไอคอนและป้ายดาวด้วยค่าเท่ากัน เพราะป้ายผูกกับไอคอนด้วย constraint แต่ translation ไม่ส่งต่ออัตโนมัติ
+
+@@ 162 | private void startBattleStage
+[startBattleStage] เล่นเสียงปุ่ม แล้วเปิด BattleActivity พร้อม STAGE_ID และ HERO_ID
