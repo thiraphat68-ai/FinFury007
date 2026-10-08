@@ -1,0 +1,642 @@
+// =====================================================================================
+// [คนที่ 2 - Model ฮีโร่และสกิล]  ไฟล์: Octopus.java  (571 บรรทัด)
+// ตำแหน่งไฟล์จริง: app/src/main/java/com/example/finfury/Octopus.java
+// สำเนานี้เพิ่มคอมเมนต์ โค้ดเหมือนไฟล์จริงทุกตัวอักษร
+//
+// [ไฟล์นี้คืออะไร]
+//   ฮีโร่ตัวที่ 4 "Octopus" (ปลาหมึก) วิชา "การเขียนโปรแกรม" (Programming) ธีมสกิลเหมือนคำสั่งโปรแกรม
+//     - Skill 1 Tentacle Loop   ไม่พุ่ง หวดหนวดรอบตัว 3 รอบ (เหมือน for loop) รอบละ 1 ดาเมจ ในรัศมี 200 px
+//     - Skill 2 Bug Ink         ยิงก้อนหมึก ดาเมจ 2 ตกที่ไหนทิ้ง "แอ่งบั๊ก" 3 วินาที ศัตรูในแอ่งช้าลง 50%
+//     - Ultimate Infinite Loop  หนวด 8 เส้นคว้าศัตรูทุกตัวมากองหน้าตัว ตรึง 4 วินาที บีบ 1 ดาเมจทุก 0.5 วินาที (รวม 8 ครั้ง)
+//   ใช้ปุ่ม ULT แยก  | ระหว่างตรึง (holding) ไม่สะสมสแตก กัน quiz เด้งขัดจังหวะ
+//
+// [ผังไฟล์] สเตตัส -> ค่าคงที่ 3 สกิล -> สถานะตรึง -> constructor/ข้อความ -> useSkill1 -> useSkill2 -> spawnPuddle
+//           -> executeUltimateSkill -> releaseAll -> ตัวช่วย -> วิวที่วาดเอง SpinView, PuddleView, GrabView
+//
+// [จะแก้/เพิ่มอะไรบ่อย ๆ]
+//   - Skill 1: LOOP_RADIUS (รัศมี) LOOP_SPINS (จำนวนรอบ) SPIN_MS (เวลาต่อรอบ) LOOP_DAMAGE
+//   - Skill 2: INK_* (ก้อนหมึก) PUDDLE_* (แอ่ง: รัศมี อายุ ความช้า)
+//   - Ultimate: GATHER_DISTANCE PULL_MS HOLD_MS SQUEEZE_INTERVAL_MS SQUEEZE_DAMAGE TENTACLES
+// =====================================================================================
+package com.example.finfury;
+
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
+import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.animation.LinearInterpolator;
+import android.widget.FrameLayout;
+
+import androidx.annotation.NonNull;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+// [คอมเมนต์คลาส - สรุปสกิลโดยเจ้าของไฟล์เดิม]
+/**
+ * Octopus (วิชาการเขียนโปรแกรม):
+ *  - Skill 1 Tentacle Loop : ไม่พุ่ง หวดหนวดรอบตัว 3 รอบ (for loop) รอบละ 1 ดาเมจ ศัตรูทุกตัวในรัศมี 200 px
+ *  - Skill 2 Bug Ink       : ยิงก้อนหมึกตรงๆ ดาเมจ 2 ตกที่ไหนทิ้งแอ่งหมึก 3 วินาที ศัตรูในแอ่งช้าลง 50%
+ *  - Ultimate Infinite Loop: หนวดทั้ง 8 คว้าศัตรูทุกตัวมากองรวมกันด้านหน้า ตรึงไว้ 4 วินาที
+ *                            บีบ 1 ดาเมจทุก 0.5 วินาที (รวม 8) กองอยู่ในระยะ Tentacle Loop พอดี
+ */
+public class Octopus extends Hero {
+    // [สเตตัสของ Octopus] เลือด 115 / ความเร็ว 0.95 / ต้องสะสม 20 ฮิต / คูลดาวน์ Skill 1 = 2.5 วินาที, Skill 2 = 4.5 วินาที
+    // ---- สเตตัสพื้นฐาน (สมดุล) ----
+    @Override public int getMaxHp() { return 115; }
+    @Override public float getBaseSpeedMultiplier() { return 0.95f; }
+    @Override public int getStackNeeded() { return 20; }
+    @Override public long getSkill1CooldownMs() { return 2500; }
+    @Override public long getSkill2CooldownMs() { return 4500; }
+
+
+    // [ค่าคงที่ Skill 1] LOOP_RADIUS รัศมีโดนศัตรู (px) | LOOP_SPINS จำนวนรอบ | SPIN_MS เวลาต่อรอบ (ms) | LOOP_DAMAGE ดาเมจต่อรอบ
+    //   เวลาทั้งสกิล = SPIN_MS x LOOP_SPINS = 0.9 วินาที  ดาเมจรวมสูงสุดต่อตัว = LOOP_SPINS x LOOP_DAMAGE
+    // ---------- Skill 1: Tentacle Loop ----------
+    private static final float LOOP_RADIUS = 200f;
+    private static final int LOOP_SPINS = 3;
+    private static final long SPIN_MS = 300;
+    private static final int LOOP_DAMAGE = 1;
+
+    // [ค่าคงที่ Skill 2] INK_DISTANCE ระยะบินไกลสุด | INK_DURATION_MS เวลาบิน | INK_SIZE ขนาดก้อน | INK_DAMAGE ดาเมจตอนชน
+    //   PUDDLE_RADIUS รัศมีแอ่ง | PUDDLE_MS อายุแอ่ง | PUDDLE_SLOW ตัวคูณความเร็วศัตรูในแอ่ง (0.5 = ช้าลงครึ่งหนึ่ง)
+    // ---------- Skill 2: Bug Ink ----------
+    private static final float INK_DISTANCE = 900f;
+    private static final long INK_DURATION_MS = 500;
+    private static final int INK_SIZE = 56;
+    private static final int INK_DAMAGE = 2;
+    private static final float PUDDLE_RADIUS = 110f;
+    private static final long PUDDLE_MS = 3000;
+    private static final float PUDDLE_SLOW = 0.5f;
+
+    // [ค่าคงที่ Ultimate] GATHER_DISTANCE จุดรวมพลอยู่หน้าปลากี่ px (ตั้งให้อยู่ในรัศมี Tentacle Loop พอดี เพื่อให้ใช้ Skill 1 ซ้ำใส่กองได้)
+    //   PULL_MS เวลาดึงศัตรูเข้ามา | HOLD_MS เวลาตรึง | SQUEEZE_INTERVAL_MS ช่วงบีบ | SQUEEZE_DAMAGE ดาเมจต่อครั้ง | TENTACLES จำนวนหนวด
+    //   จำนวนครั้งที่บีบ = HOLD_MS / SQUEEZE_INTERVAL_MS = 8
+    // ---------- Ultimate: Infinite Loop ----------
+    private static final float GATHER_DISTANCE = 150f;    // กองศัตรูอยู่หน้าปลา (ในรัศมี Tentacle Loop 200 px)
+    private static final long PULL_MS = 600;
+    private static final long HOLD_MS = 4000;
+    private static final long SQUEEZE_INTERVAL_MS = 500;  // 4000 / 500 = 8 ครั้ง
+    private static final int SQUEEZE_DAMAGE = 1;
+    private static final int TENTACLES = 8;
+
+    // [สถานะ Ultimate] holding = กำลังตรึงอยู่ไหม (สกิลอื่นเช็กเพื่อไม่สะสมสแตก) | holdLoop = ตัวจับเวลา
+    //   grabView = ภาพหนวดรัด | held = รายชื่อศัตรูที่ถูกตรึง
+    // ระหว่างตรึงศัตรูไม่สะสมสแตก ไม่งั้น quiz เด้งขึ้นมาขัดกลางจังหวะ
+    private boolean holding = false;
+    private ValueAnimator holdLoop;
+    private GrabView grabView;
+    private final List<SeaEnemy> held = new ArrayList<>();
+
+    // [constructor] ชื่อ "Octopus" วิชา "Programming" (QuestionBank เลือกโจทย์โปรแกรมมิ่งจากคำว่า program)
+    public Octopus() {
+        super("Octopus", "Programming");
+    }
+
+    // [ปุ่ม ULT แยก] true
+    @Override
+    public boolean usesUltimateButton() {
+        return true;
+    }
+
+    // [ข้อความสกิล] ชื่อ ไอคอน คำอธิบาย (แสดงบนปุ่มและหน้าเลือกฮีโร่)
+    @Override public String getSkill1Name() { return "Tentacle Loop"; }
+    @Override public String getSkill1Icon() { return "🐙"; }
+    @Override public String getSkill1Description() { return "หวดหนวดรอบตัว 3 รอบ รอบละ 1 ดาเมจ ใส่ศัตรูในรัศมี"; }
+
+    @Override public String getSkill2Name() { return "Bug Ink"; }
+    @Override public String getSkill2Icon() { return "🖋️"; }
+    @Override public String getSkill2Description() { return "ยิงหมึก 2 ดาเมจ ทิ้งแอ่งหมึก 3 วินาที ศัตรูในแอ่งช้าลง 50%"; }
+
+    @Override public String getUltimateName() { return "Infinite Loop"; }
+    @Override public String getUltimateIcon() { return "♾️"; }
+    @Override public String getUltimateDescription() { return "หนวดดึงศัตรูทั้งหมดมารวมกัน ตรึง 4 วินาที บีบ 8 ครั้ง ครั้งละ 1 ดาเมจ"; }
+
+    // =========================================================
+    // Skill 1: Tentacle Loop  for (int i = 0; i < 3; i++) { หวดรอบตัว }
+    // =========================================================
+    // [Skill 1: Tentacle Loop - ลำดับการทำงาน]
+    //   1) สร้าง SpinView (ภาพหนวดหมุน) 2) ValueAnimator ใช้เวลา SPIN_MS x LOOP_SPINS
+    //   3) ทุกเฟรม: revolutions = จำนวนรอบที่หมุนไปแล้ว (เศษส่วน) อัปเดตตำแหน่งภาพตามผู้เล่น (วงหนวดตามตัวปลาไป)
+    //   4) ทุกครึ่งรอบ (revolutions >= รอบที่ n + 0.5) นับเป็น 1 ครั้งที่หวดโดน: ศัตรูในระยะ LOOP_RADIUS โดน LOOP_DAMAGE
+    //      ใช้ takeDamage(ดาเมจ, false) = ไม่ผลักถอย (ไม่งั้นศัตรูหลุดวงตั้งแต่รอบแรก)
+    //   5) สะสมสแตกครั้งเดียวต่อศัตรูต่อสกิล (everHit) และไม่สะสมถ้ากำลังตรึง (holding)
+    //   [แก้ยังไง] อยากให้หวดโดนทุกรอบเต็ม: เปลี่ยน + 0.5f เป็น + 1f | ให้ผลักถอย: เปลี่ยน false เป็น true
+    @Override
+    public void useSkill1(BattleContext ctx) {
+        FrameLayout area = ctx.getGameArea();
+        View player = ctx.getPlayerContainer();
+        if (area == null || player == null) return;
+
+        final SpinView spin = new SpinView(ctx.getContext());
+        spin.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        area.addView(spin);
+
+        final Set<SeaEnemy> everHit = new HashSet<>();
+        final int[] applied = {0};
+
+        ValueAnimator anim = ValueAnimator.ofFloat(0f, 1f);
+        anim.setDuration(SPIN_MS * LOOP_SPINS);
+        anim.setInterpolator(new LinearInterpolator());
+        anim.addUpdateListener(animation -> {
+            float revolutions = animation.getAnimatedFraction() * LOOP_SPINS;
+            float cx = player.getX() + player.getWidth() / 2f;
+            float cy = player.getY() + player.getHeight() / 2f;
+            spin.update(cx, cy, revolutions);
+
+            // หนวดหวดโดนกลางรอบ (ครบครึ่งรอบแล้วคิดดาเมจรอบนั้น)
+            while (applied[0] < LOOP_SPINS && revolutions >= applied[0] + 0.5f) {
+                applied[0]++;
+                for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+                    SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
+                    if (!enemy.isAlive || enemy.containerView == null) continue;
+                    View ev = enemy.containerView;
+                    float ex = ev.getX() + ev.getWidth() / 2f;
+                    float ey = ev.getY() + ev.getHeight() / 2f;
+                    float reach = LOOP_RADIUS + Math.max(ev.getWidth(), ev.getHeight()) / 2f;
+                    if (Math.hypot(ex - cx, ey - cy) <= reach) {
+                        // ไม่ผลักถอย ไม่งั้นศัตรูหลุดวงตั้งแต่รอบแรก รอบที่ 2-3 ไม่โดน
+                        enemy.takeDamage(LOOP_DAMAGE, false);
+                        if (everHit.add(enemy) && !holding) ctx.onHitEnemySuccess();
+                    }
+                }
+            }
+        });
+        anim.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                removeFromParent(spin);
+            }
+        });
+        anim.start();
+    }
+
+    // =========================================================
+    // Skill 2: Bug Ink ก้อนหมึกตกแล้วกลายเป็นแอ่ง "บั๊ก" ที่ทำให้ศัตรูช้า
+    // =========================================================
+    // [Skill 2: Bug Ink - ลำดับการทำงาน]
+    //   1) ทิศจากมุมจอยสติ๊ก เริ่มห่างตัว 50 px 2) สร้างก้อนหมึก (View วงรีไล่สีม่วง) 3) ValueAnimator บินเป็นเส้นตรงและยืดหดเล็กน้อย (squash)
+    //   4) ทุกเฟรมเช็กชนศัตรู: ชน = หยุด ทำดาเมจ INK_DAMAGE สะสมสแตก แล้ว spawnPuddle ตรงจุดชน
+    //   5) บินจนสุดทางโดยไม่ชน: ลบก้อนหมึก และ spawnPuddle ที่ปลายทาง (แอ่งยังเกิดเสมอ)
+    @Override
+    public void useSkill2(BattleContext ctx) {
+        FrameLayout area = ctx.getGameArea();
+        View player = ctx.getPlayerContainer();
+        if (area == null || player == null) return;
+
+        float rad = (float) Math.toRadians(ctx.getPlayerAngle());
+        final float dirX = (float) Math.cos(rad);
+        final float dirY = (float) Math.sin(rad);
+
+        final float startCx = player.getX() + player.getWidth() / 2f + dirX * 50f;
+        final float startCy = player.getY() + player.getHeight() / 2f + dirY * 50f;
+        final float endCx = startCx + dirX * INK_DISTANCE;
+        final float endCy = startCy + dirY * INK_DISTANCE;
+
+        final View blob = new View(ctx.getContext());
+        GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.parseColor("#7E57C2"), Color.parseColor("#311B92")});
+        bg.setShape(GradientDrawable.OVAL);
+        blob.setBackground(bg);
+        blob.setLayoutParams(new FrameLayout.LayoutParams(INK_SIZE, INK_SIZE));
+        blob.setX(startCx - INK_SIZE / 2f);
+        blob.setY(startCy - INK_SIZE / 2f);
+        area.addView(blob);
+
+        final boolean[] landed = {false};
+
+        ValueAnimator anim = ValueAnimator.ofFloat(0f, 1f);
+        anim.setDuration(INK_DURATION_MS);
+        anim.setInterpolator(new LinearInterpolator());
+        anim.addUpdateListener(animation -> {
+            if (landed[0]) return;
+            float f = animation.getAnimatedFraction();
+            float cx = startCx + (endCx - startCx) * f;
+            float cy = startCy + (endCy - startCy) * f;
+            blob.setX(cx - INK_SIZE / 2f);
+            blob.setY(cy - INK_SIZE / 2f);
+            // ก้อนหมึกยืด/หดเล็กน้อยระหว่างบิน
+            float squash = 1f + 0.18f * (float) Math.sin(f * Math.PI * 6);
+            blob.setScaleX(squash);
+            blob.setScaleY(2f - squash);
+
+            for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+                SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
+                if (!enemy.isAlive || enemy.containerView == null) continue;
+                View ev = enemy.containerView;
+                float ex = ev.getX() + ev.getWidth() / 2f;
+                float ey = ev.getY() + ev.getHeight() / 2f;
+                if (Math.hypot(ex - cx, ey - cy) <= INK_SIZE / 2f + Math.max(ev.getWidth(), ev.getHeight()) / 2f) {
+                    landed[0] = true;
+                    animation.cancel();
+                    enemy.takeDamage(INK_DAMAGE);
+                    if (!holding) ctx.onHitEnemySuccess();
+                    spawnPuddle(ctx, cx, cy);
+                    return;
+                }
+            }
+        });
+        anim.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                removeFromParent(blob);
+                // ไม่โดนใคร: ตกลงพื้นที่ปลายทาง ก็ยังทิ้งแอ่งไว้
+                if (!landed[0]) {
+                    landed[0] = true;
+                    spawnPuddle(ctx, endCx, endCy);
+                }
+            }
+        });
+        anim.start();
+    }
+
+    // [spawnPuddle = สร้างแอ่งบั๊ก] วาง PuddleView ที่จุด (cx, cy) ขยายจาก 0.3 เป็น 1 เท่า
+    //   ตลอดอายุ PUDDLE_MS ทุกเฟรม: ศัตรูที่ศูนย์กลางอยู่ในรัศมีแอ่งถูก applySlow(PUDDLE_SLOW, 150 ms) ต่ออายุทุกเฟรมที่ยังอยู่ข้างใน
+    //   15% สุดท้ายของอายุแอ่งค่อย ๆ จาง | เกมจบ = ยกเลิก
+    //   [แก้ยังไง] ทำให้ช้ากว่านี้: ลด PUDDLE_SLOW (0.3 = เหลือ 30%)
+    /** แอ่งหมึก: ศัตรูที่อยู่ในแอ่งถูกสโลว์ 50% ทุกเฟรมที่อยู่ข้างใน */
+    private void spawnPuddle(BattleContext ctx, float cx, float cy) {
+        FrameLayout area = ctx.getGameArea();
+        if (area == null) return;
+
+        final PuddleView puddle = new PuddleView(ctx.getContext(), PUDDLE_RADIUS);
+        int d = (int) (PUDDLE_RADIUS * 2);
+        puddle.setLayoutParams(new FrameLayout.LayoutParams(d, d));
+        puddle.setX(cx - PUDDLE_RADIUS);
+        puddle.setY(cy - PUDDLE_RADIUS);
+        puddle.setScaleX(0.3f);
+        puddle.setScaleY(0.3f);
+        area.addView(puddle);
+        puddle.animate().scaleX(1f).scaleY(1f).setDuration(180).start();
+
+        ValueAnimator life = ValueAnimator.ofFloat(0f, 1f);
+        life.setDuration(PUDDLE_MS);
+        life.setInterpolator(new LinearInterpolator());
+        life.addUpdateListener(animation -> {
+            if (!ctx.isGameRunning()) {
+                animation.cancel();
+                return;
+            }
+            float f = animation.getAnimatedFraction();
+            // ครึ่งวินาทีสุดท้ายแอ่งค่อยๆ จาง
+            puddle.setAlpha(f > 0.85f ? (1f - f) / 0.15f : 1f);
+
+            for (int enemyIdx = 0; enemyIdx < ctx.getEnemies().size(); enemyIdx++) {
+                SeaEnemy enemy = ctx.getEnemies().get(enemyIdx);
+                if (!enemy.isAlive || enemy.containerView == null) continue;
+                View ev = enemy.containerView;
+                float ex = ev.getX() + ev.getWidth() / 2f;
+                float ey = ev.getY() + ev.getHeight() / 2f;
+                if (Math.hypot(ex - cx, ey - cy) <= PUDDLE_RADIUS) {
+                    enemy.applySlow(PUDDLE_SLOW, 150);
+                }
+            }
+        });
+        life.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                removeFromParent(puddle);
+            }
+        });
+        life.start();
+    }
+
+    // =========================================================
+    // Ultimate: Infinite Loop คว้าทุกตัวมากองหน้าตัว ตรึง 4 วินาที บีบทุก 0.5 วินาที
+    // =========================================================
+    // [Ultimate: Infinite Loop - ลำดับการทำงาน]
+    //   1) releaseAll เคลียร์ของเก่า 2) รวบรวมเหยื่อ: ศัตรูที่ยังมีชีวิต ไม่ถูกกลืน และมี View (ไม่มี = จบทันที)
+    //   3) จุดรวมพล (gx, gy) = หน้าปลาตามทิศที่หัน ห่าง GATHER_DISTANCE แล้วบีบให้อยู่ในจอ (เว้นขอบ 90 px)
+    //   4) ศัตรูทุกตัว: setSwallowed(true) หยุด AI แล้วเลื่อนมาเรียงเป็นวงเล็ก ๆ รอบจุดรวมพล (รัศมี 55 px)
+    //   5) สร้าง GrabView (หนวดรัด) แล้ว holdLoop นับเวลาเอง:
+    //        - เกมจบ = ปล่อย | เกมหยุด (quiz) = หยุดนับ
+    //        - ดึงครบ PULL_MS แล้ว: ctx.onUltimateFinished() ปลดล็อกปุ่มสกิล (ใช้ Skill 1 ใส่กองได้ทันที)
+    //        - ทุก SQUEEZE_INTERVAL_MS หลังดึงเสร็จ: ศัตรูที่ยังมีชีวิตโดน SQUEEZE_DAMAGE (ไม่ผลัก) + หนวดเต้น
+    //        - ครบ PULL_MS + HOLD_MS หรือตายหมด: ปล่อย (releaseAll)
+    //   [ระวัง] ทุกทางออกต้องเรียก ctx.onUltimateFinished() (โค้ดใช้ตัวแปร unlocked กันเรียกซ้ำ)
+    @Override
+    public void executeUltimateSkill(BattleContext ctx) {
+        FrameLayout area = ctx.getGameArea();
+        View player = ctx.getPlayerContainer();
+        if (area == null || player == null) {
+            ctx.onUltimateFinished();
+            return;
+        }
+
+        releaseAll();   // ใช้ซ้ำระหว่างตรึงอยู่ = เริ่มใหม่
+
+        final List<SeaEnemy> victims = new ArrayList<>();
+        for (int eIdx = 0; eIdx < ctx.getEnemies().size(); eIdx++) {
+            SeaEnemy e = ctx.getEnemies().get(eIdx);
+            if (e.isAlive && !e.isSwallowed() && e.containerView != null) victims.add(e);
+        }
+        if (victims.isEmpty()) {
+            ctx.onUltimateFinished();
+            return;
+        }
+
+        // จุดรวมพลอยู่ "ด้านหน้า" ปลา ตามทิศที่หันอยู่ และต้องอยู่ในจอ
+        float rad = (float) Math.toRadians(ctx.getPlayerAngle());
+        float pcx = player.getX() + player.getWidth() / 2f;
+        float pcy = player.getY() + player.getHeight() / 2f;
+        float gx = pcx + (float) Math.cos(rad) * GATHER_DISTANCE;
+        float gy = pcy + (float) Math.sin(rad) * GATHER_DISTANCE;
+        if (area.getWidth() > 0 && area.getHeight() > 0) {
+            gx = Math.max(90f, Math.min(area.getWidth() - 90f, gx));
+            gy = Math.max(90f, Math.min(area.getHeight() - 90f, gy));
+        }
+
+        held.addAll(victims);
+        holding = true;
+
+        // ศัตรูกองรวมกันเป็นวงเล็กๆ รอบจุดรวมพล ไม่ซ้อนทับสนิท
+        int n = victims.size();
+        for (int i = 0; i < n; i++) {
+            SeaEnemy e = victims.get(i);
+            e.setSwallowed(true);     // หยุด AI: เคลื่อนที่/โจมตีไม่ได้
+            View ev = e.containerView;
+            double a = Math.PI * 2 * i / n;
+            float ring = n == 1 ? 0f : 55f;
+            float tx = gx + (float) Math.cos(a) * ring - ev.getWidth() / 2f;
+            float ty = gy + (float) Math.sin(a) * ring - ev.getHeight() / 2f;
+            ev.animate().x(tx).y(ty).setDuration(PULL_MS)
+                    .setInterpolator(new AccelerateDecelerateInterpolator()).start();
+        }
+
+        grabView = new GrabView(ctx.getContext(), player, held);
+        grabView.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        area.addView(grabView);
+
+        final long[] elapsed = {0};
+        final long[] lastNs = {System.nanoTime()};
+        final int[] ticks = {0};
+        final boolean[] unlocked = {false};
+
+        holdLoop = ValueAnimator.ofFloat(0f, 1f);
+        holdLoop.setDuration(60_000);   // เพดานกันค้าง จบจริงด้วยตัวนับเวลาด้านล่าง
+        holdLoop.setInterpolator(new LinearInterpolator());
+        holdLoop.addUpdateListener(animation -> {
+            long now = System.nanoTime();
+            long dtMs = (now - lastNs[0]) / 1_000_000L;
+            lastNs[0] = now;
+
+            if (!ctx.isGameRunning()) {
+                releaseAll();
+                return;
+            }
+            if (ctx.isGamePaused()) return;   // quiz ขึ้นอยู่ เวลาหยุดนับ
+
+            elapsed[0] += dtMs;
+            grabView.update(Math.min(1f, elapsed[0] / (float) PULL_MS));
+
+            // ดึงเข้ามาครบแล้ว: ปลดล็อกปุ่มสกิลให้ผู้เล่นใช้ Tentacle Loop ใส่กองศัตรูได้ทันที
+            if (!unlocked[0] && elapsed[0] >= PULL_MS) {
+                unlocked[0] = true;
+                ctx.onUltimateFinished();
+            }
+
+            // บีบทุก 0.5 วินาทีหลังดึงเข้ามาครบ รวม 8 ครั้ง
+            while (ticks[0] < HOLD_MS / SQUEEZE_INTERVAL_MS
+                    && elapsed[0] >= PULL_MS + (ticks[0] + 1) * SQUEEZE_INTERVAL_MS) {
+                ticks[0]++;
+                for (int eIdx = 0; eIdx < held.size(); eIdx++) {
+                    SeaEnemy e = held.get(eIdx);
+                    if (e.isAlive) e.takeDamage(SQUEEZE_DAMAGE, false);
+                }
+                grabView.pulse();
+            }
+
+            boolean anyAlive = false;
+            for (int eIdx = 0; eIdx < held.size(); eIdx++) {
+                SeaEnemy e = held.get(eIdx);
+                if (e.isAlive) {
+                    anyAlive = true;
+                    break;
+                }
+            }
+            if (elapsed[0] >= PULL_MS + HOLD_MS || !anyAlive) {
+                if (!unlocked[0]) {
+                    unlocked[0] = true;
+                    ctx.onUltimateFinished();
+                }
+                releaseAll();
+            }
+        });
+        holdLoop.start();
+    }
+
+    // [releaseAll = ปล่อยเหยื่อและเก็บหนวด] holding=false , setSwallowed(false) ทุกตัว , ล้างลิสต์ , ยกเลิกตัวจับเวลา , ทำให้หนวดจางแล้วลบ
+    /** ปล่อยศัตรูทุกตัวและเก็บหนวด */
+    private void releaseAll() {
+        holding = false;
+        for (SeaEnemy e : held) e.setSwallowed(false);
+        held.clear();
+        if (holdLoop != null) {
+            ValueAnimator l = holdLoop;
+            holdLoop = null;
+            l.removeAllUpdateListeners();
+            l.cancel();
+        }
+        if (grabView != null) {
+            View v = grabView;
+            grabView = null;
+            v.animate().alpha(0f).setDuration(250).withEndAction(() -> removeFromParent(v)).start();
+        }
+    }
+
+    // [ตัวช่วย] ลบ View ออกจากพ่อ (ถ้ามี)
+    private static void removeFromParent(View v) {
+        if (v.getParent() instanceof ViewGroup) ((ViewGroup) v.getParent()).removeView(v);
+    }
+
+    // [ตัวช่วยสร้างพู่กันเส้น] สี + ความหนา ปลายมน
+    private static Paint stroke(int color, float width) {
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeCap(Paint.Cap.ROUND);
+        p.setStrokeJoin(Paint.Join.ROUND);
+        p.setColor(color);
+        p.setStrokeWidth(width);
+        return p;
+    }
+
+    // =========================================================
+    // [วิวที่วาดเอง] ไม่ใช้ไฟล์รูป วาดด้วย Canvas
+    // วิวที่วาดเอง
+    // =========================================================
+
+    // [SpinView] วาดวงขอบเขตจริงของสกิลจาง ๆ (LOOP_RADIUS) + หนวด TENTACLES เส้นหมุนตามจำนวนรอบ
+    //   แต่ละเส้นประกอบจาก 14 ช่วง รัศมีเพิ่มจาก 30 ถึง LOOP_RADIUS มุมถอยหลังตามระยะ (a0 - t x 0.9) ทำให้ปลายหนวดโค้งตามหลัง
+    //   [แก้ยังไง] หนวดโค้งมากขึ้น: เพิ่ม 0.9 | ความหนา/สี: ดูตัวแปร glow และ core
+    /** หนวด 8 เส้นหวดเป็นวงรอบตัวปลา หมุนตามจำนวนรอบ ปลายหนวดโค้งตามหลัง */
+    private static class SpinView extends View {
+        private final Paint glow = stroke(Color.parseColor("#66FF5252"), 26f);
+        private final Paint core = stroke(Color.parseColor("#FFD32F2F"), 12f);
+        private final Paint ring = stroke(Color.parseColor("#33FF5252"), 4f);
+        private final Path spinPath = new Path();
+        private float cx, cy, revolutions;
+
+        SpinView(Context c) {
+            super(c);
+        }
+
+        void update(float cx, float cy, float revolutions) {
+            this.cx = cx;
+            this.cy = cy;
+            this.revolutions = revolutions;
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(@NonNull Canvas canvas) {
+            // วงขอบเขตจริงของสกิล (รัศมีโดนศัตรู) จางๆ ให้ผู้เล่นเห็นระยะ
+            canvas.drawCircle(cx, cy, LOOP_RADIUS, ring);
+
+            double base = revolutions * Math.PI * 2;
+            Path path = spinPath;
+            for (int i = 0; i < TENTACLES; i++) {
+                double a0 = base + Math.PI * 2 * i / TENTACLES;
+                path.reset();
+                int steps = 14;
+                for (int k = 0; k <= steps; k++) {
+                    float t = k / (float) steps;
+                    float r = 30f + (LOOP_RADIUS - 30f) * t;
+                    // ปลายหนวดโค้งตามหลังแนวหวด
+                    double a = a0 - t * 0.9;
+                    float x = cx + (float) Math.cos(a) * r;
+                    float y = cy + (float) Math.sin(a) * r;
+                    if (k == 0) path.moveTo(x, y);
+                    else path.lineTo(x, y);
+                }
+                canvas.drawPath(path, glow);
+                canvas.drawPath(path, core);
+            }
+        }
+    }
+
+    // [PuddleView] แอ่งหมึกวาดจากวงกลมซ้อนกันหลายวงให้ดูเป็นหยดไม่เรียบ + ขอบเส้น + อีโมจิ 🐞 กลางแอ่ง (สื่อว่า "บั๊ก")
+    /** แอ่งหมึกซ้อนวงกลมหลายวงให้ดูเป็นหยดไม่เรียบ + 🐞 ตรงกลางบอกว่าเป็นบั๊ก */
+    private static class PuddleView extends View {
+        private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint edge = stroke(Color.parseColor("#AA7E57C2"), 5f);
+        private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final float radius;
+
+        PuddleView(Context c, float radius) {
+            super(c);
+            this.radius = radius;
+            fill.setColor(Color.parseColor("#B3311B92"));
+            text.setTextAlign(Paint.Align.CENTER);
+            text.setTextSize(radius * 0.5f);
+            text.setTypeface(Typeface.DEFAULT_BOLD);
+        }
+
+        @Override
+        protected void onDraw(@NonNull Canvas canvas) {
+            float c = radius;
+            canvas.drawCircle(c, c, radius * 0.86f, fill);
+            canvas.drawCircle(c - radius * 0.4f, c - radius * 0.2f, radius * 0.5f, fill);
+            canvas.drawCircle(c + radius * 0.38f, c - radius * 0.3f, radius * 0.42f, fill);
+            canvas.drawCircle(c + radius * 0.2f, c + radius * 0.5f, radius * 0.46f, fill);
+            canvas.drawCircle(c - radius * 0.35f, c + radius * 0.42f, radius * 0.4f, fill);
+            canvas.drawCircle(c, c, radius * 0.9f, edge);
+            canvas.drawText("🐞", c, c + radius * 0.17f, text);
+        }
+    }
+
+    // [GrabView] วาดหนวด 8 เส้นเลื้อยจากรอบตัวปลาไปหาศัตรูที่ถูกตรึง (ปลายตามตัวศัตรูไปเอง)
+    //   reach 0..1 = ยืดไปถึงเป้าแค่ไหน (ใช้ตอนดึงเข้า) | pulse = หนวดหนาขึ้นวูบหนึ่งตอนบีบ
+    //   หนวดแบ่งกันรัดศัตรู: i % จำนวนศัตรูที่เหลือ เส้นที่เกินใช้รัดตัวเดียวกัน | wob = แกว่งข้างแบบคลื่นไซน์ให้ดูเลื้อย
+    //   ใช้ลิสต์ aliveBuf เดิมซ้ำทุกเฟรม ไม่สร้างใหม่
+    /** หนวด 8 เส้นเลื้อยจากตัวปลาไปรัดศัตรูที่ถูกตรึง (ปลายหนวดตามตัวศัตรูไปเอง) */
+    private static class GrabView extends View {
+        private final Paint glow = stroke(Color.parseColor("#66FF5252"), 24f);
+        private final Paint core = stroke(Color.parseColor("#FFD32F2F"), 12f);
+        private final View player;
+        private final List<SeaEnemy> victims;
+        private final Path grabPath = new Path();
+        private final List<SeaEnemy> aliveBuf = new ArrayList<>();
+        private float reach = 0f;
+        private float pulse = 0f;
+
+        GrabView(Context c, View player, List<SeaEnemy> victims) {
+            super(c);
+            this.player = player;
+            this.victims = victims;
+        }
+
+        /** reach 0..1 = หนวดยืดออกไปถึงศัตรูมากแค่ไหน */
+        void update(float reach) {
+            this.reach = reach;
+            invalidate();
+        }
+
+        void pulse() {
+            pulse = 1f;
+        }
+
+        @Override
+        protected void onDraw(@NonNull Canvas canvas) {
+            List<SeaEnemy> alive = aliveBuf;
+            alive.clear();   // ใช้ลิสต์เดิมซ้ำทุกเฟรม
+            for (int eIdx = 0; eIdx < victims.size(); eIdx++) {
+                SeaEnemy e = victims.get(eIdx);
+                if (e.isAlive && e.containerView != null) alive.add(e);
+            }
+            if (alive.isEmpty()) return;
+
+            float px = player.getX() + player.getWidth() / 2f;
+            float py = player.getY() + player.getHeight() / 2f;
+            float phase = System.nanoTime() / 150e6f;
+
+            glow.setStrokeWidth(24f + 14f * pulse);
+            core.setStrokeWidth(12f + 6f * pulse);
+
+            Path path = grabPath;
+            for (int i = 0; i < TENTACLES; i++) {
+                // หนวด 8 เส้นแบ่งกันไปรัดศัตรูที่เหลือ (ถ้าศัตรูน้อยกว่า 8 หลายเส้นรัดตัวเดียวกัน)
+                SeaEnemy e = alive.get(i % alive.size());
+                View ev = e.containerView;
+                float ex = ev.getX() + ev.getWidth() / 2f;
+                float ey = ev.getY() + ev.getHeight() / 2f;
+
+                // หนวดแต่ละเส้นออกจากตัวปลาคนละมุม แล้วเลื้อยไปหาเป้า
+                double sa = Math.PI * 2 * i / TENTACLES;
+                float sx = px + (float) Math.cos(sa) * 24f;
+                float sy = py + (float) Math.sin(sa) * 24f;
+
+                float dx = ex - sx, dy = ey - sy;
+                float len = Math.max((float) Math.hypot(dx, dy), 1f);
+                float nx = -dy / len, ny = dx / len;
+
+                path.reset();
+                int steps = 16;
+                for (int k = 0; k <= steps; k++) {
+                    float t = k / (float) steps * reach;
+                    float wob = (float) Math.sin(phase + i + t * 9f) * 16f * (1f - t * 0.5f)
+                            * (float) Math.sin(t * Math.PI);
+                    float x = sx + dx * t + nx * wob;
+                    float y = sy + dy * t + ny * wob;
+                    if (k == 0) path.moveTo(x, y);
+                    else path.lineTo(x, y);
+                }
+                canvas.drawPath(path, glow);
+                canvas.drawPath(path, core);
+            }
+            pulse = Math.max(0f, pulse - 0.05f);
+        }
+    }
+}

@@ -1,0 +1,124 @@
+@@ 1 | package
+=====================================================================================
+[คนที่ 2 - Model ฮีโร่และสกิล]  ไฟล์: ElectricEel.java  (510 บรรทัด)
+ตำแหน่งไฟล์จริง: app/src/main/java/com/example/finfury/ElectricEel.java
+สำเนานี้เพิ่มคอมเมนต์ โค้ดเหมือนไฟล์จริงทุกตัวอักษร
+
+[ไฟล์นี้คืออะไร]
+  ฮีโร่ตัวที่ 5 "Electric Eel" (ปลาไหลไฟฟ้า) วิชา "ฟิสิกส์" (Physics) สายยิงระยะไกลและควบคุมฝูง
+    - Skill 1 Magnetic Repulsion  คลื่นแม่เหล็กรูปพัด ดาเมจ 2 ผลักศัตรู 450 px ชนขอบจอ/ศัตรูอื่น = ดาเมจเพิ่ม 2
+    - Skill 2 Laser Beam          เลเซอร์ตรง ระยะ 650 px ทะลุทุกตัวในแนว ดาเมจ 3 คูลดาวน์สั้น
+    - Ultimate Railgun            ชาร์จ 1 วินาที (ขยับไม่ได้ แต่หมุนเล็งได้) ยิงลำแสงใหญ่ยาวสุดจอ ดาเมจ 8 + สตัน 2 วินาที ยิงครั้งเดียว
+  ใช้ปุ่ม ULT แยก
+
+[ผังไฟล์] สเตตัส -> ค่าคงที่ -> constructor/ข้อความ -> useSkill1 -> knockBack/findBlocker -> useSkill2
+          -> executeUltimateSkill (ชาร์จ) -> fireRailgun (ยิง) -> ตัวช่วย distanceToSegment/spawnImpact
+          -> วิวที่วาดเอง WaveView, ChargeView, BeamView
+
+[จะแก้/เพิ่มอะไรบ่อย ๆ]
+  - Skill 1: WAVE_RANGE WAVE_MS WAVE_SPAN_DEG REPEL_DAMAGE KNOCKBACK_DISTANCE KNOCKBACK_MS COLLISION_DAMAGE
+  - Skill 2: LASER_RANGE LASER_WIDTH LASER_DAMAGE
+  - Ultimate: CHARGE_MS (เวลาชาร์จ) BEAM_WIDTH BEAM_DAMAGE BEAM_STUN_MS
+=====================================================================================
+
+@@ 25 | /**
+[คอมเมนต์คลาส - สรุปสกิลโดยเจ้าของไฟล์เดิม]
+
+@@ 34 | สเตตัสพื้นฐาน
+[สเตตัสของ Electric Eel] เลือด 85 / ความเร็ว 1.1 / ต้องสะสม 20 ฮิต / คูลดาวน์ Skill 1 = 2 วินาที, Skill 2 = 2.5 วินาที
+
+@@ 42 | Skill 1: Magnetic Repulsion
+[ค่าคงที่ Skill 1]
+  WAVE_RANGE ระยะคลื่นไกลสุด (px) | WAVE_MS เวลาที่คลื่นขยาย | WAVE_SPAN_DEG มุมพัดรวม (120 = ด้านละ 60 องศา)
+  REPEL_DAMAGE ดาเมจตอนคลื่นผ่าน | KNOCKBACK_DISTANCE ระยะที่ผลัก (px) | KNOCKBACK_MS เวลาที่ผลัก
+  COLLISION_DAMAGE ดาเมจเพิ่มเมื่อชนขอบจอหรือศัตรูอื่น
+
+@@ 51 | Skill 2: Laser Beam
+[ค่าคงที่ Skill 2] LASER_RANGE ระยะ | LASER_WIDTH ความกว้างเส้น (และความกว้างโซนโดน) | LASER_DAMAGE ดาเมจ
+
+@@ 56 | Ultimate: Railgun
+[ค่าคงที่ Ultimate] CHARGE_MS เวลาชาร์จก่อนยิง | BEAM_WIDTH ความกว้างลำแสง | BEAM_DAMAGE ดาเมจ | BEAM_STUN_MS เวลาสตันศัตรู
+
+@@ 62 | public ElectricEel
+[constructor] ชื่อ "Electric Eel" วิชา "Physics" (QuestionBank เลือกโจทย์ฟิสิกส์จากคำว่า phys)
+
+@@ 66 | @Override
+[ปุ่ม ULT แยก] true
+
+@@ 71 | getSkill1Name
+[ข้อความสกิล] ชื่อ ไอคอน คำอธิบาย ของสกิลทั้ง 3
+
+@@ 84 | ====
+@@ 87 | @Override
+[Skill 1: Magnetic Repulsion - ลำดับการทำงาน]
+  1) จุดกำเนิด = กลางตัวปลา ทิศ = มุมจอยสติ๊กล่าสุด คำนวณ minCos = cos(ครึ่งหนึ่งของมุมพัด) ไว้ตัดสินว่าศัตรูอยู่ในพัดไหม
+  2) สร้าง WaveView (ภาพคลื่นขยาย) แล้ว ValueAnimator ขยายรัศมี r = WAVE_RANGE x p ตลอด WAVE_MS
+  3) ทุกเฟรม ตรวจศัตรูแต่ละตัว (ที่ยังไม่เคยโดนจากคลื่นลูกนี้):
+       - ต้องอยู่ในพัด: (ผลคูณจุดของทิศไปหาศัตรู กับทิศคลื่น) / ระยะ >= minCos
+       - หน้าคลื่นต้องมาถึงตัวแล้ว: r + ครึ่งขนาดศัตรู >= ระยะ
+     ผ่าน -> เก็บใน alreadyHit , takeDamage(REPEL_DAMAGE, false) , onHitEnemySuccess , แล้วผลักด้วย knockBack
+  [แก้ยังไง] พัดกว้าง/แคบ = WAVE_SPAN_DEG | ผลักไกล/ใกล้ = KNOCKBACK_DISTANCE
+
+@@ 147 | ผลักศัตรู 450 px
+[knockBack = ผลักศัตรูตามทิศ]
+  - enemy.stun(...) หยุด AI ศัตรูระหว่างถูกผลัก ไม่งั้นมันเดินสวนทางกับแอนิเมชัน
+  - ValueAnimator (ชะลอลง) เลื่อนตำแหน่ง = จุดเริ่ม + ทิศ x KNOCKBACK_DISTANCE x p บีบไม่ให้ออกนอกจอ
+  - ถ้า "ชนขอบ" (ตำแหน่งที่บีบไม่เท่าตำแหน่งที่ต้องการ) หรือ "ชนศัตรูอื่น" (findBlocker) -> หยุด วงกระแทก และโดน COLLISION_DAMAGE
+  - ระวัง: ถ้าศัตรูตายหรือเกมจบ ยกเลิก animation ทันที
+
+@@ 194 | ศัตรูตัวอื่นที่อยู่
+[findBlocker] หาศัตรูตัวอื่นที่ขวางทางผลัก: ต้องอยู่ "ข้างหน้า" ตามทิศผลัก (ผลคูณจุด > 0) และระยะน้อยกว่า reach
+  (reach = 40% ของผลรวมขนาดใหญ่สุดของสองตัว) คืนตัวแรกที่เจอ หรือ null ถ้าไม่มี
+
+@@ 211 | ====
+@@ 214 | @Override
+[Skill 2: Laser Beam - ลำดับการทำงาน]  (หมายเหตุ: ชื่อในคอมเมนต์บรรทัดบนเป็นของเก่า "Particle Accelerator" แต่โค้ดคือเลเซอร์)
+  1) จุดเริ่ม = หน้าตัวปลา 30 px ตามมุมจอยสติ๊ก จุดสิ้นสุด = เริ่ม + ทิศ x LASER_RANGE
+  2) สร้าง BeamView (เส้นเลเซอร์) วาบแล้วจางหายใน ~0.3 วินาที
+  3) "ยิงทันที": วนทุกศัตรู คำนวณระยะจากตัวศัตรูถึง "เส้นตรง" (distanceToSegment)
+     ถ้าน้อยกว่า reach (ครึ่งความกว้างเลเซอร์ + 40% ขนาดตัวศัตรู) = โดน ทะลุทุกตัว: วงกระแทก takeDamage(LASER_DAMAGE) onHitEnemySuccess
+  [แก้ยังไง] ให้เลเซอร์กว้างขึ้น = เพิ่ม LASER_WIDTH | ให้โดนง่ายขึ้น = เพิ่มตัวคูณ 0.4f
+
+@@ 252 | ====
+@@ 255 | @Override
+[Ultimate: Railgun ช่วงที่ 1: ชาร์จ - ลำดับการทำงาน]
+  1) setSkillLock(true) ผู้เล่นขยับไม่ได้ แต่ยังหมุนเล็งด้วยจอยสติ๊กได้ (aim[0] อ่านมุมใหม่ทุกเฟรม)
+  2) ChargeView วาดเส้นเล็ง + ลูกพลังงานที่โตขึ้นตามเวลา และหลอดชาร์จเหนือหัวผู้เล่น (ctx.setPlayerChargeProgress)
+  3) ชาร์จครบ CHARGE_MS (onAnimationEnd) -> ลบภาพชาร์จ ซ่อนหลอด แล้ว fireRailgun ด้วยมุมสุดท้าย
+     ถ้า animation ถูกยกเลิก (เกมจบ) ไม่ยิง
+  [ระวัง] ต้องคืน setSkillLock(false) และ onUltimateFinished() เสมอ (ทำใน fireRailgun)
+
+@@ 306 | private void fireRailgun
+[Ultimate ช่วงที่ 2: ยิง fireRailgun]
+  ลำแสงยาว = เส้นทแยงมุมของจอ (ยาวพอสำหรับทุกทิศ) วาด BeamView กว้าง BEAM_WIDTH + แฟลชขาวเต็มจอสั้น ๆ
+  ศัตรูทุกตัวที่อยู่ในแนว (reach = ครึ่งความกว้างลำ + 30% ขนาดตัว): takeDamage(BEAM_DAMAGE) และ stun(BEAM_STUN_MS) ถ้ายังไม่ตาย
+  จบแล้วปลดล็อก + ctx.onUltimateFinished() "ยิงครั้งเดียวจบ ไม่ว่าจะโดนหรือไม่"
+  [แก้ยังไง] อยากให้ Railgun สะสมสแตกด้วย: เพิ่ม ctx.onHitEnemySuccess() ในบล็อกที่โดน
+
+@@ 355 | ====
+@@ 358 | private static float distanceToSegment
+[distanceToSegment = ระยะจากจุดถึงเส้นตรง (a->b)] คณิตศาสตร์: ฉายจุดลงเส้นแล้วบีบ t ให้อยู่ 0..1 (ไม่เลยปลายเส้น)
+  คืนระยะระหว่างจุดนั้นกับจุดบนเส้นที่ใกล้ที่สุด ใช้ตัดสินว่าศัตรู "อยู่ในแนวเลเซอร์/ลำแสง" ไหม
+
+@@ 365 | private static void removeFromParent
+[ตัวช่วย] ลบ View ออกจากพ่อ (ถ้ามี)
+
+@@ 369 | วงกระแทก
+[spawnImpact] วงกลมสีเหลืองขยายแล้วจาง ใน 280 ms ใช้ตอนเลเซอร์โดน/ศัตรูชนขอบ
+
+@@ 388 | private static Paint stroke
+[ตัวช่วยสร้างพู่กันเส้น] สี + ความหนา ปลายมน
+
+@@ 397 | คลื่นแม่เหล็กรูปพัด
+[WaveView] วาดส่วนโค้ง (drawArc) สามชั้น: รอบนอก กลาง แกนขาว ขยายตาม progress และค่อยจางลง (alpha = 255 x (1 - p กำลังสอง))
+  มุมเริ่ม = ทิศ - ครึ่งหนึ่งของมุมพัด จึงโค้งพอดีรอบทิศที่ยิง
+
+@@ 435 | สีของลูกพลังงาน
+[สีลูกพลังงาน] ไล่สีแบบวงกลมจากกลาง (ฟ้าอ่อนทึบ) ออกขอบ (ฟ้าเข้มโปร่ง) ใช้กับ RadialGradient ใน ChargeView
+
+@@ 439 | ตอนชาร์จ Railgun
+[ChargeView] วาดเส้นเล็งประสีแดง (DashPathEffect) แสดงแนวยิงจริง และลูกพลังงานหน้าตัวปลาที่โตจาก 12 เป็น 58 px ตามเวลา (frac)
+  ใช้ Shader เดียวแล้วขยายด้วย canvas.scale (ไม่สร้าง gradient ใหม่ทุกเฟรม)
+
+@@ 482 | ลำแสง Railgun
+[BeamView] วาดเส้นหนา 3 ชั้นซ้อนกัน: รอบนอก (กว้างสุด) กลาง (60%) แกนขาว (28%) ใช้ทั้งเลเซอร์ Skill 2 และ Railgun
