@@ -10,7 +10,7 @@
 | 2 Target User & Value | 02_Target_User_Value | หน้ารวม: ไอคอนผู้ใช้ + ตารางเปรียบเทียบ + ฮีโร่กับวิชา · ตารางเปรียบเทียบเดี่ยว |
 | 3 Objectives | 03_Objectives | 6 จุดประสงค์ พร้อมไอคอน |
 | 4 Course Knowledge | 04_Course_Knowledge | Lecture 2–6 เทียบกับโค้ดจริง |
-| 5 System Design | 05_System_Design | 5.1 Class Diagram · 5.2 MVC · 5.3 Workflow · 5.4 UI Storyboard |
+| 5 System Design | 05_System_Design | 5.1 Class Diagram · 5.2 MVC · 5.3 Workflow · 5.4 UI (โฟลเดอร์ UI: 12 หน้าจอ + Storyboard ภาพรวม) |
 | 6 Features | 06_Features | 6.1 ฮีโร่ · 6.2 ควิซ/ULT/หน้าแพ้ · 6.3 ด่าน/บอส · 6.4 ศัตรู · 6.5 ไอเทม · 6.6 ภาพต่อสู้ |
 | 7 Validation | 07_Validation | แผนทดสอบ |
 | 8 Potential | 08_Potential_NextStep | Roadmap |
@@ -23,3 +23,7 @@
 - โหมดฝึกตอบ (PracticeQuizActivity)
 - หน้าตั้งค่า
 - ภาพถ่ายตอนทดสอบกับผู้ใช้ (สไลด์ 7) และรูปสมาชิก (สไลด์ 10)
+
+## หมายเหตุภาพ UI (05_System_Design/UI)
+ภาพ UI 12 หน้าจอวาดจำลองจากไฟล์ layout XML และข้อความในโค้ด Android (ไม่ใช่แคปจากเครื่องจริง)
+ศัตรูในหน้าต่อสู้เป็นอีโมจิ ตำแหน่งในฉากเป็นตัวอย่าง
