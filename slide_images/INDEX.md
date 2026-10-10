@@ -7,7 +7,7 @@
 |---|---|---|
 | 0 ปก | 00_ปก | ปกสไลด์_พร้อมใช้ · โลโก้เกม |
 | 1 Problem & Opportunity | 01_Problem_Opportunity | ปัญหา+โอกาส |
-| 2 Target User & Value | 02_Target_User_Value | ตารางเปรียบเทียบ · หน้าเลือกฮีโร่ |
+| 2 Target User & Value | 02_Target_User_Value | หน้ารวม: ไอคอนผู้ใช้ + ตารางเปรียบเทียบ + ฮีโร่กับวิชา · ตารางเปรียบเทียบเดี่ยว |
 | 3 Objectives | 03_Objectives | 6 จุดประสงค์ |
 | 4 Course Knowledge | 04_Course_Knowledge | โค้ด Hero vs Shark (OOP) |
 | 5 System Design | 05_System_Design | 5.1 Class Diagram · 5.2 MVC · 5.3 Workflow · 5.4 UI Storyboard |
