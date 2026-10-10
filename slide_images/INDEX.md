@@ -11,7 +11,7 @@
 | 3 Objectives | 03_Objectives | 6 จุดประสงค์ พร้อมไอคอน |
 | 4 Course Knowledge | 04_Course_Knowledge | Lecture 2–6 เทียบกับโค้ดจริง |
 | 5 System Design | 05_System_Design | 5.1 Class Diagram · 5.2 MVC · 5.3 Workflow · 5.4 UI (โฟลเดอร์ UI: 12 หน้าจอ + Storyboard ภาพรวม) · 5.5 Framework/Tools |
-| 6 Features | 06_Features | 6.1 ฮีโร่ · 6.2 ควิซ/ULT/หน้าแพ้ · 6.3 ด่าน/บอส · 6.4 ศัตรู · 6.5 ไอเทม · 6.6 ภาพต่อสู้ |
+| 6 Features | 06_Features | 6.1 ฮีโร่ · 6.2 ควิซ/ULT/หน้าแพ้ · 6.3 ด่าน/บอส · 6.4 ศัตรู · 6.5 ไอเทม (ภาพใหม่) · 6.7 ฟีเจอร์อื่นๆ (เสียง/ตั้งค่า/โหมดฝึก) · 6.6 ภาพต่อสู้ |
 | 7 Validation | 07_Validation | แผนทดสอบ |
 | 8 Potential | 08_Potential_NextStep | Roadmap |
 | 9 Challenges | 09_Challenges | ปัญหา-วิธีแก้ · ช่วงเตือนก่อนโจมตี |
