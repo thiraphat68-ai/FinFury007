@@ -31,14 +31,17 @@ public class SeaEnemy {
     /** เปิด/ปิดโหมดโจมตีพร้อมกัน 2 ตัว (เรียกหลัง resetAttackQueue ตอนเริ่มด่าน) */
     public static void setDualAttack(boolean enabled) { dualAttackEnabled = enabled; }
 
+    /** ตัวนี้ถือสิทธิ์โจมตีอยู่หรือไม่ */
     private boolean holdsAttackSlot() {
         return activeAttackerId == enemyId || activeAttackerId2 == enemyId;
     }
 
+    /** ขอสิทธิ์โจมตีได้ไหม (ถือสิทธิ์อยู่แล้ว หรือมีช่องว่าง) */
     private boolean attackSlotAvailable() {
         return holdsAttackSlot() || activeAttackerId == 0 || (dualAttackEnabled && activeAttackerId2 == 0);
     }
 
+    /** ยึดช่องสิทธิ์โจมตีที่ว่างให้ตัวนี้ */
     private void claimAttackSlot() {
         if (holdsAttackSlot()) return;
         if (activeAttackerId == 0) activeAttackerId = enemyId;
@@ -94,6 +97,7 @@ public class SeaEnemy {
         setSlowed(true);
     }
 
+    /** ตั้งสถานะถูกกลืน: ถ้าถูกกลืนให้ยกเลิกการโจมตี ถ้าหลุดแล้วเริ่มนับเวลา AI ใหม่ */
     public void setSwallowed(boolean value) {
         swallowed = value;
         if (value) {
@@ -179,10 +183,12 @@ public class SeaEnemy {
     private final float zigPhase = (float) (Math.random() * Math.PI * 2);   // แต่ละตัวซิกแซกไม่พร้อมกัน
     private final float slotOffset = (float) (Math.random() * 0.4 - 0.2);   // สุ่มมุมเล็กน้อย ไม่ให้ดูเป็นแถวเป๊ะ
 
+    /** สร้างศัตรูด้วยค่าความยากของด่าน 1 */
     public SeaEnemy(BattleContext ctx, String name, String emoji, float posX, float posY) {
         this(ctx, name, emoji, posX, posY, StageConfig.forStage(1));
     }
 
+    /** สร้างศัตรู: ตั้งสเตตัสตามชนิด ปรับตามความยากของด่าน แล้วสร้างวิวบนจอ */
     public SeaEnemy(BattleContext ctx, String name, String emoji, float posX, float posY, StageConfig cfg) {
         this.ctx = ctx;
         this.name = name;
@@ -195,8 +201,8 @@ public class SeaEnemy {
         createView(posX, posY);
     }
 
-    /** เต่า (ด่าน 2-4): โดนแล้วสโลว์ 50% นาน 2 วิ / ดาวทะเล (ด่าน 2-4): โดนแล้วผลักผู้เล่นไปตามทิศพุ่ง */
-    protected void onPlayerHit(float dirX, float dirY) {
+    /** เต่า (ด่าน 2-4): โดนแล้วสโลว์ 50% นาน 2 วิ */
+    protected void onPlayerHit() {
         if ("Jellyfish".equals(name)) {   // ทุกด่าน: กระสุนแมงกะพรุนทำให้สตัน 0.5 วินาที
             ctx.stunPlayer(JELLY_STUN_MS);
             return;
@@ -204,8 +210,6 @@ public class SeaEnemy {
         if (cfg.stage < 2 || cfg.stage > 4) return;
         if ("Turtle".equals(name)) {
             ctx.slowPlayer(0.5f, 2000);
-        } else if ("Starfish".equals(name)) {
-            ctx.knockbackPlayer(dirX, dirY, 2000f);
         }
     }
 
@@ -313,6 +317,7 @@ public class SeaEnemy {
     /** จำนวนชีวิตที่เหลือ (ศัตรูปกติมี 1) */
     public int livesLeft() { return 1; }
 
+    /** ตั้งสเตตัสพื้นฐาน (เลือด ความเร็ว ระยะรอ ดาเมจ ชนิดการโจมตี สไตล์เดิน) ตามชนิดศัตรูจากอีโมจิหรือชื่อ */
     protected void configureEnemyStats() {
         if (emoji.contains("🦀") || name.contains("ปู")) {
             // ปูซ่า: เลือดเยอะ ช้า
@@ -364,6 +369,7 @@ public class SeaEnemy {
         }
     }
 
+    /** สร้างวิวของศัตรู (ชื่อ หลอดเลือด ตัวเลข รูป และไอคอนสถานะ) แล้ววางลงในพื้นที่เกม */
     private void createView(float posX, float posY) {
         LinearLayout layout = new LinearLayout(ctx.getContext());
         layout.setLayoutParams(new FrameLayout.LayoutParams(
@@ -450,6 +456,7 @@ public class SeaEnemy {
     private TextView iconSlowed;
     private TextView iconStunned;
 
+    /** สร้างไอคอนสถานะอีโมจิเหนือหัวศัตรู (ซ่อนไว้ก่อน) */
     private TextView makeStatusIcon(String emojiText) {
         TextView tv = new TextView(ctx.getContext());
         tv.setText(emojiText);
@@ -461,6 +468,7 @@ public class SeaEnemy {
         return tv;
     }
 
+    /** แสดง/ซ่อนไอคอนสถานะ */
     private static void setIcon(TextView icon, boolean visible) {
         if (icon != null) icon.setVisibility(visible ? View.VISIBLE : View.INVISIBLE);
     }
@@ -474,11 +482,13 @@ public class SeaEnemy {
     /** สตัน (ปกติไม่ต้องเรียกเอง stun() จะโชว์ให้ และซ่อนเมื่อหมดเวลา) */
     public void setStunned(boolean value) { setIcon(iconStunned, value); }
 
+    /** อัปเดตไอคอนช้าลง/สตันตามเวลาที่เหลือ */
     private void refreshStatusIcons(long now) {
         setSlowed(now < slowUntilMs);
         setStunned(now < stunUntilMs);
     }
 
+    /** อัปเดตศัตรูทุกเฟรม: เดินรอตามสไตล์ ขอสิทธิ์โจมตี เล็งและพุ่ง/ยิง เว้นระยะจากพวกเดียวกัน และเล่นแอนิเมชัน (targetX, targetY = ตำแหน่งผู้เล่น) */
     public void updateAI(float targetX, float targetY) {
         if (!isAlive || swallowed || containerView == null || !ctx.isGameRunning() || ctx.isGamePaused()) return;
 
@@ -602,7 +612,7 @@ public class SeaEnemy {
                     ctx.damagePlayer(attackDamage);
                     HitEffects.playerHit(ctx, ctx.getPlayerContainer(), attackDamage);
                     hasHitPlayerThisDash = true;
-                    if (ddist > 0.001f) onPlayerHit(ddx / ddist, ddy / ddist);
+                    if (ddist > 0.001f) onPlayerHit();
                 }
 
                 // เมื่อพุ่งถึงจุดหมายด้านหลังผู้เล่นเรียบร้อย ให้กลับเข้าสู่สถานะวนรอบรอ
@@ -677,11 +687,12 @@ public class SeaEnemy {
         return true;
     }
 
+    /** ปล่อยการโจมตีระยะไกลตามทิศที่ล็อกไว้ (แมงกะพรุน = รัวลำพลัง หมึก = พ่นกรวย) */
     private void fireRangedAttack() {
         float ecx = containerView.getX() + containerView.getWidth() / 2f;
         float ecy = containerView.getY() + containerView.getHeight() / 2f;
         final float ax = aimDirX, ay = aimDirY;
-        Runnable onHit = () -> onPlayerHit(ax, ay);
+        Runnable onHit = () -> onPlayerHit();
         if (attackType == AttackType.LINE_SHOT) {
             float speed = BASE_SPEED * speedMultiplier * LINE_SHOT_SPEED_FACTOR;
             FrameLayout area = ctx.getGameArea();
@@ -775,6 +786,7 @@ public class SeaEnemy {
         }
     }
 
+    /** เอาเส้นทาง/พื้นที่เตือนการโจมตีออกจากจอ */
     private void clearAttackPath() {
         if (attackPathView != null) {
             // เส้นทางพุ่งมาจากกองที่ใช้ซ้ำ: คืนเข้ากอง (ซ่อน) ส่วนวิวอื่น (เช่น กรวยหมึก) ลบออกตามเดิม
@@ -788,6 +800,7 @@ public class SeaEnemy {
         }
     }
 
+    /** ระยะจากจุด (px, py) ถึงเส้นตรงช่วง (ax, ay)-(bx, by) */
     private static float distanceToSegment(float px, float py, float ax, float ay, float bx, float by) {
         float abx = bx - ax, aby = by - ay;
         float len2 = abx * abx + aby * aby;
@@ -798,6 +811,7 @@ public class SeaEnemy {
     /** โบนัสดาเมจจากไอเทม (BattleActivity เซ็ตทุกเฟรม) บวกเฉพาะการโดนครั้งเดียว ไม่บวกดาเมจต่อเนื่องที่ knockback=false */
     public static int playerDamageBonus = 0;
 
+    /** รับดาเมจจากผู้เล่น (บวกโบนัสจากไอเทม) พร้อมผลักถอยปกติ */
     public void takeDamage(int damage) {
         takeDamage(damage + playerDamageBonus, true);
     }

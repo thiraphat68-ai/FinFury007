@@ -58,6 +58,7 @@ public class Shark extends Hero {
     private ValueAnimator frenzyLoop;
     private FrenzyView frenzyView;
 
+    /** สร้างฮีโร่ Shark วิชาแคลคูลัส */
     public Shark() {
         super("Shark", "Calculus");
     }
@@ -276,6 +277,7 @@ public class Shark extends Hero {
         frenzyLoop.start();
     }
 
+    /** จบโหมดคลั่ง: คืนความเร็ว/คูลดาวน์/โบนัสดาเมจเป็นปกติ แล้วเอาเอฟเฟกต์ออก */
     private void endFrenzy(BattleContext ctx) {
         frenzyActive = false;
         biteStack = 0;
@@ -311,6 +313,7 @@ public class Shark extends Hero {
     }
 
 
+    /** กรอบของ View สองตัวทับกันหรือไม่ */
     private static boolean overlaps(View v1, View v2) {
         float x1 = v1.getX(), y1 = v1.getY();
         float w1 = v1.getWidth() > 0 ? v1.getWidth() : 80f;

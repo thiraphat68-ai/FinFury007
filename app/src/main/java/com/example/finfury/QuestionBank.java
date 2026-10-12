@@ -37,6 +37,7 @@ public final class QuestionBank {
         return calculusQuestions();
     }
 
+    /** เพิ่มโจทย์หนึ่งข้อ (คำถาม ตัวเลือก และเลขข้อที่ถูก) ลงในรายการ */
     private static void add(List<QuizManager.QuizQuestion> list, String question, int correctIndex, String... options) {
         list.add(new QuizManager.QuizQuestion(question, options, correctIndex));
     }

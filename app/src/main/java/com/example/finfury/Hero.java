@@ -4,6 +4,7 @@ public abstract class Hero {
     protected String name;
     protected String subject;
 
+    /** สร้างฮีโร่ด้วยชื่อและรายวิชา */
     public Hero(String name, String subject) {
         this.name = name;
         this.subject = subject;

@@ -10,6 +10,7 @@ public final class GameProgress {
 
     private GameProgress() {}
 
+    /** คีย์ใน SharedPreferences ที่เก็บดาของด่านนั้น */
     private static String starsKey(int stageId) {
         return "stars_stage_" + stageId;
     }

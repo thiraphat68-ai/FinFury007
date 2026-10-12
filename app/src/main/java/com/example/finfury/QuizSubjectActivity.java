@@ -22,6 +22,7 @@ public class QuizSubjectActivity extends BaseActivity {
         findViewById(R.id.btnSubjectBack).setOnClickListener(v -> finish());
     }
 
+    /** ผูกปุ่มวิชาให้เปิดหน้าฝึกทำโจทย์ของวิชานั้น */
     private void bindSubject(int buttonId, String subjectKey, String subjectName) {
         findViewById(buttonId).setOnClickListener(v -> {
             SoundManager.play(SoundManager.Sfx.BUTTON);

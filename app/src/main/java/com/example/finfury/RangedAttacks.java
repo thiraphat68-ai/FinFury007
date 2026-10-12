@@ -35,6 +35,7 @@ public final class RangedAttacks {
     public static final float INK_RANGE = 640f;        // ระยะไกลสุดของกรวยหมึก
     public static final float INK_HALF_ANGLE_DEG = 32f; // ครึ่งมุมของกรวย (กว้างรวม 64°)
 
+    /** จุดกึ่งกลางของผู้เล่น (x, y) หรือ null ถ้ายังไม่มีผู้เล่น */
     private static float[] playerCenter(BattleContext ctx) {
         View p = ctx.getPlayerContainer();
         if (p == null) return null;
@@ -212,6 +213,7 @@ public final class RangedAttacks {
         return diff <= halfDeg;
     }
 
+    /** ระยะจากจุด (px, py) ถึงเส้นตรงช่วง (ax, ay)-(bx, by) */
     private static float distanceToSegment(float px, float py, float ax, float ay, float bx, float by) {
         float abx = bx - ax, aby = by - ay;
         float len2 = abx * abx + aby * aby;

@@ -127,6 +127,7 @@ public class PracticeQuizActivity extends BaseActivity {
         showQuestion();
     }
 
+    /** สลับลำดับตัวเลือกของโจทย์ และปรับเลขข้อที่ถูกให้ตรงลำดับใหม่ */
     private static QuizManager.QuizQuestion shuffleOptions(QuizManager.QuizQuestion q) {
         List<Integer> order = new ArrayList<>();
         for (int i = 0; i < q.options.length; i++) order.add(i);
@@ -140,6 +141,7 @@ public class PracticeQuizActivity extends BaseActivity {
         return new QuizManager.QuizQuestion(q.question, options, correct);
     }
 
+    /** แสดงโจทย์ข้อปัจจุบัน ตัวเลือก และตัวนับข้อ พร้อมล้างผลข้อก่อนหน้า */
     private void showQuestion() {
         QuizManager.QuizQuestion q = round.get(index);
         answered = false;
@@ -161,6 +163,7 @@ public class PracticeQuizActivity extends BaseActivity {
         }
     }
 
+    /** ตรวจคำตอบที่เลือก ล็อกตัวเลือก ไฮไลต์ถูก/ผิด นับคะแนน แล้วแสดงปุ่มไปข้อถัดไป */
     private void answer(int choice) {
         if (answered || finished) return;
         answered = true;
@@ -189,6 +192,7 @@ public class PracticeQuizActivity extends BaseActivity {
         btnNext.setVisibility(View.VISIBLE);
     }
 
+    /** แสดงหน้าสรุปคะแนนและข้อความให้กำลังใจเมื่อทำครบทุกข้อ */
     private void showResult() {
         finished = true;
         barProgress.setProgress(round.size());
@@ -199,6 +203,7 @@ public class PracticeQuizActivity extends BaseActivity {
         layoutResult.setVisibility(View.VISIBLE);
     }
 
+    /** ข้อความให้กำลังใจตามสัดส่วนคะแนนที่ทำได้ */
     private String encouragement() {
         float ratio = score / (float) Math.max(1, round.size());
         if (ratio >= 1f) return "เต็มสิบ! สุดยอดไปเลย 🎉";

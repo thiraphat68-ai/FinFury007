@@ -405,10 +405,12 @@ public class Octopus extends Hero {
         }
     }
 
+    /** ถอด View ออกจากพาเรนต์ถ้ายังติดอยู่ */
     private static void removeFromParent(View v) {
         if (v.getParent() instanceof ViewGroup) ((ViewGroup) v.getParent()).removeView(v);
     }
 
+    /** สร้าง Paint แบบเส้น (ปลายและข้อต่อมน ลบรอยหยัก) ตามสีและความหนาที่กำหนด */
     private static Paint stroke(int color, float width) {
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         p.setStyle(Paint.Style.STROKE);

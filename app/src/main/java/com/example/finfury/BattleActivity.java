@@ -136,12 +136,6 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
     public void setSpeedMultiplier(float multiplier) { speedMultiplier = multiplier; }
 
     @Override
-    public void knockbackPlayer(float dirX, float dirY, float speed) {
-        velX += dirX * speed;   // updateFish ดึงความเร็วกลับเข้าหาเป้าหมายเอง แรงจึงค่อยๆ หมด (ระยะประมาณ 250 px)
-        velY += dirY * speed;
-    }
-
-    @Override
     public void stunPlayer(long durationMs) {
         if (stunImmuneMs > 0f) return;
         stunRemainingMs = Math.max(stunRemainingMs, durationMs);
@@ -181,6 +175,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         layoutUltTimer.setVisibility(View.GONE);
     }
 
+    /** นับเวลาถอยหลังของ Ultimate ทุกเฟรม หมดเวลาแล้วซ่อนแถบเวลา */
     private void tickUltimateTimer(float dtSec) {
         if (ultTimerRemainingMs <= 0f) return;
         ultTimerRemainingMs -= dtSec * 1000f;
@@ -196,6 +191,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
     private int lastUltBarProgress = -1;
     private final StringBuilder ultTimerText = new StringBuilder(32);
 
+    /** อัปเดตหลอดและข้อความเวลา Ultimate ที่เหลือ */
     private void updateUltimateTimerUI() {
         int progress = (int) (ultTimerRemainingMs * 1000f / ultTimerTotalMs);
         if (progress != lastUltBarProgress) {
@@ -319,6 +315,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         }
     }
 
+    /** อัปเดตไอเทมบนแมพทุกเฟรม พร้อมโบนัสดาเมจและข้อความบัฟบน HUD */
     private void updateItems(float dt) {
         if (itemManager == null) return;
         itemManager.update(dt);
@@ -485,6 +482,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         }
     }
 
+    /** รีเซ็ตจอยสติ๊กกลับตรงกลาง (ใช้ตอนหยุดเกม/เปิดหน้าต่างทับ) */
     private void resetJoystick() {
         moveX = 0f;
         moveY = 0f;
@@ -535,10 +533,12 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         }
     };
 
+    /** เริ่มลูปเกมที่ทำงานทุกเฟรมผ่าน Choreographer */
     private void startGameLoop() {
         Choreographer.getInstance().postFrameCallback(frameCallback);
     }
 
+    /** ขยับผู้เล่นทุกเฟรมตามจอยสติ๊ก: นับเวลาสโลว์/สตัน ปรับความเร็วเข้าหาทิศเป้าหมาย จำกัดไม่ให้หลุดขอบจอ พร้อมพลิก/เอียงรูปปลา */
     private void updateFish(float dt) {
         if (playerContainer == null || imgPlayer == null) return;
 
@@ -618,6 +618,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         }
     }
 
+    /** สร้างศัตรูของด่านปัจจุบัน (ด่านบอส = Kraken + ลูกน้อง) และรีเซ็ตคิวสิทธิ์โจมตีก่อนเริ่ม */
     private void spawnStageEnemies() {
         enemyList.clear();
         SeaEnemy.resetAttackQueue();
@@ -642,6 +643,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         enemyList.add(new SeaEnemy(this, "Starfish", "⭐️", width * 0.65f, height * 0.85f, stageConfig));
     }
 
+    /** ล็อกปุ่มสกิลแล้วนับคูลดาวน์บนปุ่ม (ปรับตามตัวคูณคูลดาวน์และบัฟไอเทม) ครบเวลาแล้วปลดล็อก */
     private void startCooldownUI(Button btn, String originalText, long baseMs) {
         if (btn == null) return;
         btn.setEnabled(false);
@@ -675,6 +677,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         }
     }
 
+    /** ยังมีศัตรูตัวไหนมีชีวิตอยู่ไหม */
     private boolean anyEnemyAlive() {
         for (int i = 0; i < enemyList.size(); i++) {
             if (enemyList.get(i).isAlive) return true;
@@ -774,6 +777,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         });
     }
 
+    /** ฟื้นคืนชีพไม่สำเร็จ: ปิดสถานะรอฟื้น เล่นเสียงตอบผิด แล้วแสดงหน้าจอแพ้ */
     private void failRevive() {
         reviveActive = false;
         if (isFinishing()) return;
@@ -781,6 +785,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         showResultOverlay(false, 0);
     }
 
+    /** ฟื้นคืนชีพผู้เล่น: คืนเลือดตามสัดส่วน ให้อมตะชั่วคราวพร้อมกะพริบ แล้วเดินเกมต่อ */
     private void revivePlayer() {
         playerHp = Math.max(1, (int) Math.ceil(maxPlayerHp * REVIVE_HP_RATIO));
         if (barPlayerHp != null) barPlayerHp.setProgress(playerHp);
@@ -823,6 +828,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         uiHandler.post(reviveBlinkRunnable);
     }
 
+    /** หยุดเอฟเฟกต์กะพริบตอนอมตะหลังฟื้นคืนชีพ */
     private void stopReviveBlink() {
         if (reviveBlinkRunnable != null) uiHandler.removeCallbacks(reviveBlinkRunnable);
         reviveBlinkRunnable = null;
@@ -844,6 +850,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         }
     }
 
+    /** อัปเดตตัวเลขเลือดผู้เล่นบน HUD */
     private void updateHpUI() {
         TextView txtHpValue = findViewById(R.id.txtHpValue);
         if (txtHpValue != null) {
@@ -851,6 +858,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         }
     }
 
+    /** อัปเดตข้อความด่าน/จำนวนศัตรูที่เหลือ (ด่านบอสแสดงจำนวนชีวิตบอส) */
     private void updateStageInfo() {
         TextView txtStageInfo = findViewById(R.id.txtStageInfo);
         if (txtStageInfo == null) return;
@@ -947,6 +955,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
                 || findViewById(R.id.overlayTutorial).getVisibility() == View.VISIBLE;
     }
 
+    /** เปิดเมนูหยุดเกม (หยุดเกมและรีเซ็ตจอยสติ๊ก) */
     private void openPauseMenu() {
         if (!isGameRunning || isOverlayOpen()) return;
         isGamePaused = true;
@@ -954,6 +963,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         overlayPause.setVisibility(View.VISIBLE);
     }
 
+    /** ปิดเมนูหยุดเกมแล้วเล่นต่อ (เปิดโจทย์ที่ค้างอยู่ถ้ามี) */
     private void closePauseMenu() {
         overlayPause.setVisibility(View.GONE);
         isGamePaused = false;
@@ -1004,10 +1014,12 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private Runnable pendingAutoUltimate;
 
+    /** เริ่มด่านนี้ใหม่ด้วยการสร้างหน้าจอต่อสู้ใหม่ */
     private void restartStage() {
         recreate();
     }
 
+    /** แสดงหน้าจอผลชนะ/แพ้ พร้อมดาที่ได้และปุ่มถัดไป/เล่นใหม่/กลับเมนู */
     private void showResultOverlay(boolean win, int stars) {
         cancelEverythingForStageEnd();   // หน้าจอชนะ/แพ้มีความสำคัญสูงสุด ที่เหลือต้องปิดหมด
         resetJoystick();
@@ -1049,12 +1061,14 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         overlayResult.setVisibility(View.VISIBLE);
     }
 
+    /** แสดงปุ่มบนหน้าจอผลลัพธ์พร้อมข้อความและการกระทำเมื่อกด */
     private static void setResultButton(Button b, String text, Runnable action) {
         b.setVisibility(View.VISIBLE);
         b.setText(text);
         b.setOnClickListener(v -> action.run());
     }
 
+    /** ไปด่านถัดไปด้วยฮีโร่ตัวเดิมและปิดหน้านี้ */
     private void goToNextStage() {
         Intent intent = new Intent(this, BattleActivity.class);
         intent.putExtra("HERO_ID", currentHeroId);
@@ -1063,6 +1077,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         finish();
     }
 
+    /** กลับไปหน้าเลือกด่านที่เมนูหลักและปิดหน้านี้ */
     private void returnToLevelSelect() {
         Intent intent = new Intent(this, MainActivity.class);
         intent.putExtra("SHOW_LEVEL_SELECT", true);
@@ -1081,6 +1096,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         return true;
     }
 
+    /** เช็กว่าชนะหรือยัง ถ้าชนะบันทึกดาที่ดีที่สุดแล้วแสดงหน้าจอผลลัพธ์ */
     private void checkWinCondition() {
         if (allEnemiesDefeated() && isGameRunning) {
             SoundManager.play(SoundManager.Sfx.WIN);
@@ -1093,6 +1109,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         }
     }
 
+    /** สร้างตัวจัดการโจทย์ตามวิชาของฮีโร่ และกำหนดว่าเมื่อโจทย์ขึ้น/ตอบถูก/ตอบผิดเกมต้องทำอะไร */
     private void setupQuiz() {
         // ชุดโจทย์ตามวิชาของฮีโร่ที่เลือก (QuestionBank เป็นแหล่งคำถามเดียว)
         String subject = playerHero.getSubject();
@@ -1147,12 +1164,14 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
                 });
     }
 
+    /** เดินเกมต่อและรีเซ็ตสแตกเป็น 0 หลังตอบโจทย์ */
     private void resetStackAfterQuiz() {
         isGamePaused = false;
         currentStack = 0;
         updateStackUI();
     }
 
+    /** อัปเดตหลอดและข้อความสแตกบน HUD */
     @SuppressLint("SetTextI18n")
     private void updateStackUI() {
         if (stackProgressBar != null) stackProgressBar.setProgress(currentStack);
@@ -1183,6 +1202,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         }
     }
 
+    /** ตั้งรูปฮีโร่ ขนาดกรอบรูป ชื่อ และรูปโปรไฟล์ตาม heroId */
     private void setupHeroAndSkills(int heroId) {
         int heroDrawableId = R.drawable.hero_1;
         switch (heroId) {
@@ -1213,6 +1233,7 @@ public class BattleActivity extends BaseActivity implements BattleContext, ItemM
         if (imgProfile != null) imgProfile.setImageResource(heroDrawableId);
     }
 
+    /** เอฟเฟกต์ปุ่มย่อลงแล้วเด้งกลับตอนกด */
     private void animateButton(View button) {
         if (button == null) return;
         button.animate().scaleX(0.85f).scaleY(0.85f).setDuration(80).withEndAction(() ->

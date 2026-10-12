@@ -59,6 +59,7 @@ public class ElectricEel extends Hero {
     private static final int BEAM_DAMAGE = 8;
     private static final long BEAM_STUN_MS = 2000;
 
+    /** สร้างฮีโร่ Electric Eel วิชาฟิสิกส์ */
     public ElectricEel() {
         super("Electric Eel", "Physics");
     }
@@ -303,6 +304,7 @@ public class ElectricEel extends Hero {
         anim.start();
     }
 
+    /** ยิงลำแสงเรลกันยาวสุดจอตามมุม angleDeg: ศัตรูในแนวลำแสงโดนดาเมจและสตัน แล้วปลดล็อกสกิลจบ Ultimate */
     private void fireRailgun(BattleContext ctx, View player, float angleDeg) {
         FrameLayout area = ctx.getGameArea();
         if (area == null) return;
@@ -362,6 +364,7 @@ public class ElectricEel extends Hero {
         return (float) Math.hypot(px - (ax + abx * t), py - (ay + aby * t));
     }
 
+    /** ถอด View ออกจากพาเรนต์ถ้ายังติดอยู่ */
     private static void removeFromParent(View v) {
         if (v.getParent() instanceof ViewGroup) ((ViewGroup) v.getParent()).removeView(v);
     }
@@ -385,6 +388,7 @@ public class ElectricEel extends Hero {
                 .withEndAction(() -> removeFromParent(ring)).start();
     }
 
+    /** สร้าง Paint แบบเส้น (ปลายมน ลบรอยหยัก) ตามสีและความหนาที่กำหนด */
     private static Paint stroke(int color, float width) {
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         p.setStyle(Paint.Style.STROKE);

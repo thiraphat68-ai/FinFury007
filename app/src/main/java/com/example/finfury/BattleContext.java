@@ -56,9 +56,6 @@ public interface BattleContext {
 
     void damagePlayer(int damage);
 
-    /** ผลักผู้เล่นไปตามทิศ (dirX, dirY เป็นเวกเตอร์หน่วย) ด้วยแรงกระแทกความเร็ว speed px/s ที่ค่อยๆ ลดลงเอง */
-    void knockbackPlayer(float dirX, float dirY, float speed);
-
     /** สตันผู้เล่น: ขยับไม่ได้ durationMs มิลลิวินาที (สกิลยังกดได้ ต่อซ้ำไม่ซ้อนทับ) */
     void stunPlayer(long durationMs);
 
