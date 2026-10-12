@@ -83,6 +83,7 @@ public class KrakenBoss extends SeaEnemy {
     private float frameTime = 0f;
     private int shownFrame = -1;
 
+    /** สร้างบอส Kraken: ตั้ง HUD เลือดบอส โหลดเฟรมภาพ และวางไว้กลางด้านขวาของจอหลัง layout เสร็จ */
     public KrakenBoss(BattleContext ctx, float posX, float posY, StageConfig cfg) {
         super(ctx, "Kraken Boss", "🦑", posX, posY, cfg);
         damageMul = cfg.damageMul;
@@ -126,6 +127,7 @@ public class KrakenBoss extends SeaEnemy {
     @Override
     public void setSwallowed(boolean value) { /* บอสตัวใหญ่เกินกว่าจะกลืน */ }
 
+    /** เลือดหมดแล้วเสียหนึ่งชีวิต ถ้ายังเหลือชีวิตให้ฟื้นเลือดและเข้าเฟส 2 (คืน true) หมดทุกชีวิตให้ตายตามปกติ (คืน false) */
     @Override
     protected boolean reviveOnDepleted() {
         lives--;
@@ -166,6 +168,7 @@ public class KrakenBoss extends SeaEnemy {
         imgAvatar.setLayoutParams(lp);
     }
 
+    /** เข้าเฟส 2: ขยายตัว เพิ่มความถี่/จำนวนคลื่นที่ยิง และคำนวณจุดพักใหม่ */
     private void enterPhase2() {
         float cx = containerView.getX() + containerView.getWidth() / 2f;
         float cy = containerView.getY() + containerView.getHeight() / 2f;
@@ -189,6 +192,7 @@ public class KrakenBoss extends SeaEnemy {
         });
     }
 
+    /** โหลดเฟรมภาพอนิเมชันบอสจาก drawable ตามชื่อ octo_idle_XX */
     private void loadFrames() {
         applyBossSize();
         if (!(imgAvatar instanceof android.widget.ImageView)) return;
@@ -201,12 +205,14 @@ public class KrakenBoss extends SeaEnemy {
         }
     }
 
+    /** อัปเดตชื่อบอสพร้อมจำนวนชีวิตที่เหลือบน HUD และบนตัวบอส */
     private void refreshNameLabel() {
         if (hudName != null) hudName.setText(bossTitle());
         if (txtName == null) return;
         txtName.setText(bossTitle());
     }
 
+    /** ข้อความชื่อบอสพร้อมหัวใจเท่าจำนวนชีวิตที่เหลือ */
     private String bossTitle() {
         StringBuilder sb = new StringBuilder("Kraken Boss ");
         for (int i = 0; i < lives; i++) sb.append("❤");
@@ -221,6 +227,7 @@ public class KrakenBoss extends SeaEnemy {
     private android.widget.TextView hudHp;
     private android.widget.ProgressBar hudBar;
 
+    /** ซ่อนหลอดเลือดที่ติดตัวบอส แล้วผูกกับหลอดเลือดบอสบน HUD ของหน้าจอต่อสู้ */
     private void setupBossHud() {
         // หลอด/ชื่อ/ตัวเลขที่ติดตัวบอสซ่อนไว้ (บอสตัวใหญ่ ข้อมูลไปอยู่บน HUD แทน)
         txtName.setVisibility(View.GONE);
@@ -239,12 +246,14 @@ public class KrakenBoss extends SeaEnemy {
         syncHud();
     }
 
+    /** อัปเดตหลอดและตัวเลขเลือดบอสบน HUD ให้ตรงกับค่าปัจจุบัน */
     private void syncHud() {
         if (hudRoot == null) return;
         hudBar.setProgress(hp);
         hudHp.setText(hp + "/" + maxHp);
     }
 
+    /** รับดาเมจจากผู้เล่นโดยคูณโบนัสและสะสมเศษทศนิยมไว้ แล้วอัปเดต HUD */
     @Override
     public void takeDamage(int damage, boolean knockback) {
         // ผู้เล่นตีบอสแรงขึ้น +15% (ดาเมจเป็นจำนวนเต็มเล็กๆ จึงสะสมเศษไว้ ไม่งั้นปัดแล้วโบนัสหายไป)
@@ -261,6 +270,7 @@ public class KrakenBoss extends SeaEnemy {
         syncHud();
     }
 
+    /** คำนวณจุดพักของบอส (กลางด้านขวาของจอ) */
     private void computeHome() {
         View area = (View) containerView.getParent();
         if (area == null || area.getWidth() <= 0) return;
@@ -270,6 +280,7 @@ public class KrakenBoss extends SeaEnemy {
         homeY = Math.max(0f, (area.getHeight() - h) / 2f);
     }
 
+    /** วางบอสไว้ที่จุดพัก */
     private void placeAtHome() {
         View area = (View) containerView.getParent();
         if (area == null || area.getWidth() <= 0) return;
@@ -364,6 +375,7 @@ public class KrakenBoss extends SeaEnemy {
         animate(dt);
     }
 
+    /** รัศมีวงฟาดหางของบอส (ครึ่งหนึ่งของด้านที่ยาวกว่า บวกระยะเพิ่ม) */
     private float tailRadius() {
         return Math.max(containerView.getWidth(), containerView.getHeight()) / 2f + TAIL_EXTRA_RADIUS;
     }
@@ -380,6 +392,7 @@ public class KrakenBoss extends SeaEnemy {
         containerView.setY(Math.max(0f, Math.min(area.getHeight() - containerView.getHeight(), ny)));
     }
 
+    /** แสดงวงเตือนบริเวณที่หางจะฟาด (จุดศูนย์กลาง cx, cy รัศมี r) */
     private void showTailTelegraph(float cx, float cy, float r) {
         FrameLayout fx = ctx.getGameArea();
         if (fx == null) return;
@@ -400,6 +413,7 @@ public class KrakenBoss extends SeaEnemy {
         SoundManager.play(SoundManager.Sfx.ENEMY_WARN);
     }
 
+    /** เอาวงเตือนหางฟาดออกจากจอ */
     private void removeTailTelegraph() {
         if (tailTelegraph == null) return;
         tailTelegraph.animate().cancel();
@@ -411,6 +425,7 @@ public class KrakenBoss extends SeaEnemy {
 
     private int scaled(int base) { return Math.max(1, Math.round(base * damageMul)); }
 
+    /** เปลี่ยนไปเฟสการโจมตีถัดไปและเริ่มนับเวลาเฟสใหม่ */
     private void enterPhase(Phase next) {
         phase = next;
         phaseMs = 0;
@@ -436,6 +451,7 @@ public class KrakenBoss extends SeaEnemy {
         SoundManager.play(SoundManager.Sfx.ENEMY_WARN);
     }
 
+    /** คืนเส้นเตือนคลื่นทั้งหมดเข้ากองที่ใช้ซ้ำ */
     private void releaseWaveTelegraphs() {
         for (int i = 0; i < waveTelegraphs.length; i++) {
             if (waveTelegraphs[i] != null) {
@@ -445,6 +461,7 @@ public class KrakenBoss extends SeaEnemy {
         }
     }
 
+    /** ยกเลิกเส้น/วงเตือนทุกชนิดของบอส */
     private void cancelTelegraphs() {
         removeTailTelegraph();
         releaseWaveTelegraphs();

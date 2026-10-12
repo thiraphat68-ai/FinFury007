@@ -276,6 +276,7 @@ public class MainActivity extends BaseActivity {
         }
     }
 
+    /** โหลดวิดีโอพื้นหลังจาก raw resource ใหม่แล้วเล่น */
     private void reloadVideo(VideoView video, int rawRes) {
         video.setVideoURI(Uri.parse("android.resource://" + getPackageName() + "/" + rawRes));
         video.start();

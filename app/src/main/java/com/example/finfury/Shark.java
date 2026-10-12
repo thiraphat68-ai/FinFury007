@@ -26,7 +26,7 @@ import java.util.List;
  *  - Ultimate Blood Frenzy     : 6 วินาที ว่ายเร็วขึ้น คูลดาวน์สั้นลง และกัดโดนแต่ละครั้งแรงขึ้นอีก 1 (กัดพลาด = รีเซ็ต)
  */
 public class Shark extends Hero {
-    // ---- สเตตัสพื้นฐาน (สมดุล) ----
+    // ---- สเตตัสพื้นฐาน (สมดุล) ----claude
     @Override public int getMaxHp() { return 100; }
     @Override public float getBaseSpeedMultiplier() { return 1.0f; }
     @Override public int getStackNeeded() { return 16; }
@@ -58,6 +58,7 @@ public class Shark extends Hero {
     private ValueAnimator frenzyLoop;
     private FrenzyView frenzyView;
 
+    /** สร้างฮีโร่ Shark วิชาแคลคูลัส */
     public Shark() {
         super("Shark", "Calculus");
     }
@@ -276,6 +277,7 @@ public class Shark extends Hero {
         frenzyLoop.start();
     }
 
+    /** จบโหมดคลั่ง: คืนความเร็ว/คูลดาวน์/โบนัสดาเมจเป็นปกติ แล้วเอาเอฟเฟกต์ออก */
     private void endFrenzy(BattleContext ctx) {
         frenzyActive = false;
         biteStack = 0;
@@ -311,6 +313,7 @@ public class Shark extends Hero {
     }
 
 
+    /** กรอบของ View สองตัวทับกันหรือไม่ */
     private static boolean overlaps(View v1, View v2) {
         float x1 = v1.getX(), y1 = v1.getY();
         float w1 = v1.getWidth() > 0 ? v1.getWidth() : 80f;

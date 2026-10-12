@@ -40,12 +40,14 @@ public final class StageConfig {
     private static final float ATTACK_SPEED_PER_STAGE = 1.4f;
     private static final long MIN_ATTACK_INTERVAL_MS = 1300;
 
+    /** เวลาเว้นช่วงโจมตีของศัตรูตามด่าน (ด่านสูงขึ้นถี่ขึ้น แต่ไม่ต่ำกว่าค่าขั้นต่ำ) */
     private static long intervalForStage(int stage) {
         // มีขั้นต่ำ: ด่าน 4 ถ้าเร็วถึง ~1100 ms ศัตรูจะโจมตีแทบไม่เว้นช่วงให้หายใจ
         return Math.max(MIN_ATTACK_INTERVAL_MS,
                 Math.round(BASE_ATTACK_INTERVAL_MS / Math.pow(ATTACK_SPEED_PER_STAGE, stage - 1)));
     }
 
+    /** คืนค่าตั้งความยากของด่านนั้น (ไม่รู้จักด่านใช้ค่าของด่าน 1) */
     public static StageConfig forStage(int stage) {
         switch (stage) {
             case 2:  return new StageConfig(2, false, true, 5, 1.20f, 1.40f, intervalForStage(2), 1.10f, false, 3, 0.85f);

@@ -92,6 +92,7 @@ public class Swordfish extends Hero {
     private CircuitView circuit;
     private ValueAnimator linkLoop;
 
+    /** สร้างฮีโร่ Swordfish วิชาวงจรไฟฟ้า */
     public Swordfish() {
         super("Swordfish", "Circuits");
     }
@@ -350,6 +351,7 @@ public class Swordfish extends Hero {
         dealDamage(ctx, best, ARC_DAMAGE);
     }
 
+    /** ติดประจุประกายไฟที่ศัตรู (แทนประจุเดิมถ้ามี) และให้หายไปเองเมื่อครบเวลาหรือศัตรูตาย */
     private void addMark(BattleContext ctx, SeaEnemy enemy, int skill) {
         FrameLayout area = ctx.getGameArea();
         if (area == null || enemy.containerView == null) return;
@@ -388,6 +390,7 @@ public class Swordfish extends Hero {
         anim.start();
     }
 
+    /** ถอนประจุที่ติดศัตรูตัวนั้นออก */
     private void clearMark(SeaEnemy enemy) {
         Mark mark = marks.remove(enemy);
         if (mark == null) return;
@@ -396,6 +399,7 @@ public class Swordfish extends Hero {
         removeSpark(mark.view);
     }
 
+    /** ถอด View ประกายออกจากพาเรนต์ถ้ายังติดอยู่ */
     private static void removeSpark(View v) {
         if (v.getParent() instanceof ViewGroup) ((ViewGroup) v.getParent()).removeView(v);
     }
@@ -460,6 +464,7 @@ public class Swordfish extends Hero {
         linkLoop.start();
     }
 
+    /** จบ Circuit Link: ล้างรายการศัตรูที่ต่อกัน หยุดลูปแอนิเมชัน และเอาวงจรออกด้วยการจาง */
     private void endLink() {
         linkActive = false;
         linked.clear();
@@ -598,6 +603,7 @@ public class Swordfish extends Hero {
 
     private static final Path JAGGED_PATH = new Path();
 
+    /** สร้าง Paint แบบเส้น (ปลายและข้อต่อมน ลบรอยหยัก) ตามสีและความหนาที่กำหนด */
     private static Paint strokePaint(int color, float width) {
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         p.setStyle(Paint.Style.STROKE);
@@ -829,6 +835,7 @@ public class Swordfish extends Hero {
         }
     }
 
+    /** กรอบของ View สองตัวที่มองเห็นบนจอทับกันหรือไม่ */
     private static boolean isColliding(View v1, View v2) {
         if (v1 == null || v2 == null) return false;
         // getGlobalVisibleRect คืน false เมื่อ view ยังไม่ได้ layout (ขนาด 0) หรืออยู่นอกจอ

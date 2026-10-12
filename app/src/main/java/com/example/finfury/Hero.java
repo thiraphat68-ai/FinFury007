@@ -4,37 +4,38 @@ public abstract class Hero {
     protected String name;
     protected String subject;
 
+    /** สร้างฮีโร่ด้วยชื่อและรายวิชา */
     public Hero(String name, String subject) {
         this.name = name;
         this.subject = subject;
     }
 
     public String getName() { return name; }
-    public String getSubject() { return subject; }
+    public String getSubject() { return subject; } // รายวิชา
 
     // ---------------------------------------------------------
     // สเตตัสพื้นฐาน (ฮีโร่แต่ละตัว override ให้ต่างกัน)
     // ---------------------------------------------------------
-    /** เลือดสูงสุด */
+    // เลือดสูงสุด
     public int getMaxHp() { return 100; }
 
-    /** ตัวคูณความเร็วเดินพื้นฐาน (1.0 = ปกติ) */
+    // ตัวคูณความเร็วเดินพื้นฐาน (1.0 = ปกติ)
     public float getBaseSpeedMultiplier() { return 1f; }
 
-    /** จำนวนฮิตที่ต้องสะสมจนสแตกเต็มและขึ้นควิซ */
+    // จำนวนฮิตที่ต้องสะสมจนสแตกเต็มและขึ้นควิซ
     public int getStackNeeded() { return 10; }
 
-    /** คูลดาวน์ Skill 1 / Skill 2 (มิลลิวินาที) ก่อนคูณตัวลดคูลดาวน์ของสกิล */
+    // คูลดาวน์ Skill 1 / Skill 2 (มิลลิวินาที) ก่อนคูณตัวลดคูลดาวน์ของสกิล
     public long getSkill1CooldownMs() { return 500; }
     public long getSkill2CooldownMs() { return 500; }
 
-    /** สกิล 1 (ปุ่ม Skill 1) */
+    // สกิล 1 (ปุ่ม Skill 1)
     public abstract void useSkill1(BattleContext ctx);
 
-    /** สกิล 2 (ปุ่ม Skill 2) */
+    // สกิล 2 (ปุ่ม Skill 2)
     public abstract void useSkill2(BattleContext ctx);
 
-    /** Ultimate (ทำงานหลังตอบ quiz ถูก) ต้องเรียก ctx.onUltimateFinished() เมื่อจบ */
+    // Ultimate (ทำงานหลังตอบ quiz ถูก) ต้องเรียก ctx.onUltimateFinished() เมื่อจบ
     public abstract void executeUltimateSkill(BattleContext ctx);
 
     /**

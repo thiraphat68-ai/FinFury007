@@ -18,6 +18,7 @@ public abstract class BaseActivity extends AppCompatActivity {
         if (hasFocus) hideSystemBars();
     }
 
+    /** ซ่อนแถบสถานะ/แถบนำทาง (ปัดจากขอบจอเพื่อเรียกกลับชั่วคราว) ให้เล่นเต็มจอ */
     private void hideSystemBars() {
         WindowInsetsControllerCompat controller =
                 WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());

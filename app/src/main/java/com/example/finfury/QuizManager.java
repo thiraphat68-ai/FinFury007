@@ -94,6 +94,7 @@ public class QuizManager {
     private final View layoutContent;
     private final TextView txtCountdown;
 
+    /** สร้างตัวจัดการโจทย์ ผูกกับ overlay และชุดโจทย์ พร้อมตัวรับเหตุการณ์ขึ้นโจทย์/ตอบ */
     public QuizManager(Context context, View overlay, String title, List<QuizQuestion> bank, Listener listener) {
         this.overlay = overlay;
         this.title = title;
@@ -158,6 +159,7 @@ public class QuizManager {
         return overlay.getVisibility() == View.VISIBLE;
     }
 
+    /** เปิดโจทย์ข้อใหม่ (ไม่เปิดถ้าไม่มีโจทย์ มีโจทย์ค้างอยู่ หรือประตู Gate ไม่อนุญาต) */
     public void show() {
         if (bank.isEmpty() || isShowing()) return;
         if (gate != null && !gate.canShow()) return;   // ด่านจบแล้ว หรือมี overlay อื่นเปิดอยู่: ไม่เปิดโจทย์
@@ -176,6 +178,7 @@ public class QuizManager {
         present(reviveListener, reviveTitle, COLOR_REVIVE_TITLE);
     }
 
+    /** แสดง overlay โจทย์ข้อถัดไปพร้อมชื่อหัวข้อ แล้วเริ่มนับถอยหลังก่อนเริ่มจับเวลา */
     private void present(Listener l, String titleText, int titleColor) {
         activeListener = l;
         activeListener.onQuizShown();
@@ -206,6 +209,7 @@ public class QuizManager {
         runCountdown(COUNTDOWN_FROM);
     }
 
+    /** แสดงเลขนับถอยหลังก่อนเริ่มโจทย์ ถึง 0 แล้วโชว์โจทย์และเริ่มจับเวลา */
     private void runCountdown(int number) {
         if (number <= 0) {
             txtCountdown.setVisibility(View.GONE);
@@ -225,6 +229,7 @@ public class QuizManager {
         handler.postDelayed(countdownRunnable, COUNTDOWN_STEP_MS);
     }
 
+    /** เริ่มจับเวลาตอบโจทย์ พร้อมเสียงติ๊กช่วงท้ายและจัดการเมื่อหมดเวลา */
     private void beginQuizTimer() {
         cancelTimer();
         lastTickSecond = -1;
@@ -337,6 +342,7 @@ public class QuizManager {
         dismiss();
     }
 
+    /** ยกเลิกตัวจับเวลาตอบโจทย์ที่กำลังทำงานอยู่ */
     private void cancelTimer() {
         if (timer != null) {
             timer.cancel();
@@ -368,6 +374,7 @@ public class QuizManager {
         }
     }
 
+    /** เปลี่ยนสีพื้นปุ่ม */
     private static void tint(Button b, int color) {
         b.setBackgroundTintList(ColorStateList.valueOf(color));
     }

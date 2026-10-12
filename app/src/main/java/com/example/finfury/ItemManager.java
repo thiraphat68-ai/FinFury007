@@ -55,6 +55,7 @@ public class ItemManager {
         }
     }
 
+    /** แปลงมิลลิวินาทีเป็นข้อความจำนวนวินาที */
     private static String secText(long ms) {
         return String.valueOf(ms / 1000);
     }
@@ -118,6 +119,7 @@ public class ItemManager {
     private float shieldMs, speedMs, cooldownMs, damageMs;
     private int lastBuffKey = -1;
 
+    /** สร้างตัวจัดการไอเทม และสุ่มเวลาเกิดไอเทมแรก */
     public ItemManager(Context context, FrameLayout area, View player, Host host, boolean randomSpawnEnabled) {
         this.context = context;
         this.area = area;
@@ -150,6 +152,7 @@ public class ItemManager {
         }
     }
 
+    /** สุ่มชนิดไอเทมตามน้ำหนักของแต่ละชนิด */
     private Type randomType() {
         int total = 0;
         for (Type t : Type.values()) total += t.weight;
@@ -161,6 +164,7 @@ public class ItemManager {
         return Type.HEART;
     }
 
+    /** วางไอเทมชนิดนั้นที่ตำแหน่ง (cx, cy) บนแมพ (ไม่เกินจำนวนสูงสุดที่วางได้) */
     private void spawn(Type type, float cx, float cy, boolean fromRandomSpawn) {
         if (area == null || items.size() >= MAX_TOTAL_ON_MAP) return;
         float size = dp(46);
@@ -188,6 +192,7 @@ public class ItemManager {
         items.add(new Item(type, tv, fromRandomSpawn, rng.nextFloat() * 6.28f));
     }
 
+    /** นับไอเทมบนแมพที่เกิดจากการสุ่มเอง (ไม่นับที่ศัตรูดรอป) */
     private int randomOnMap() {
         int n = 0;
         for (int i = 0; i < items.size(); i++) if (items.get(i).fromRandomSpawn) n++;
@@ -238,11 +243,13 @@ public class ItemManager {
         }
     }
 
+    /** ไอเทมชนิดนี้เก็บได้ตอนนี้ไหม */
     private boolean canPickup(Type type) {
         // หัวใจตอนเลือดเต็มไม่เก็บ ปล่อยไว้ให้เก็บทีหลัง
         return type != Type.HEART || host.getPlayerHp() < host.getPlayerMaxHp();
     }
 
+    /** ใช้ผลของไอเทมที่เก็บได้ (ฟื้นเลือด เพิ่มสแตก หรือเริ่มบัฟ) พร้อมเสียงและข้อความเด้ง */
     private void apply(Type type) {
         SoundManager.play(SoundManager.Sfx.ULT_READY);
         switch (type) {
@@ -278,6 +285,7 @@ public class ItemManager {
         }
     }
 
+    /** ลดเวลาที่เหลือของบัฟทุกชนิดตามเวลาที่ผ่านไป */
     private void tickBuffs(float dtMs) {
         shieldMs = Math.max(0f, shieldMs - dtMs);
         speedMs = Math.max(0f, speedMs - dtMs);
@@ -305,12 +313,14 @@ public class ItemManager {
 
     private static int secs(float ms) { return ms <= 0f ? 0 : Math.min(63, (int) Math.ceil(ms / 1000f)); }
 
+    /** ต่อไอคอนและเวลาที่เหลือของบัฟลงข้อความ HUD (ข้ามถ้าบัฟหมดแล้ว) */
     private static void append(StringBuilder sb, String icon, float ms) {
         if (ms <= 0f) return;
         if (sb.length() > 0) sb.append("  ");
         sb.append(icon).append(' ').append(String.format(Locale.US, "%ds", secs(ms)));
     }
 
+    /** แสดงข้อความสีเด้งลอยขึ้นเหนือตัวผู้เล่นแล้วจางหาย */
     private void popup(String text, int color) {
         if (area == null) return;
         TextView tv = new TextView(context);
@@ -338,6 +348,7 @@ public class ItemManager {
                 }).start();
     }
 
+    /** เอาไอเทมลำดับที่ index ออกจากแมพและจากจอ */
     private void remove(int index) {
         Item it = items.remove(index);
         it.view.animate().cancel();
@@ -350,10 +361,12 @@ public class ItemManager {
         shieldMs = speedMs = cooldownMs = damageMs = 0f;
     }
 
+    /** แปลงหน่วย dp เป็นพิกเซล */
     private float dp(float v) {
         return v * context.getResources().getDisplayMetrics().density;
     }
 
+    /** จำกัดค่า v ให้อยู่ระหว่าง lo ถึง hi */
     private static float clamp(float v, float lo, float hi) {
         return Math.max(lo, Math.min(hi, v));
     }

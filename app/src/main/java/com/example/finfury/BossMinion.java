@@ -14,6 +14,7 @@ public class BossMinion extends SeaEnemy {
     private static final long SLOW_MS = 2000;
     private static final int BOSS_HP_LOSS = 10;
 
+    /** ลูกน้องบอส: ใช้ค่าความยากของด่าน 3 เสมอ ไม่ว่าจะเป็นด่านไหน */
     public BossMinion(BattleContext ctx, String name, String emoji, float posX, float posY) {
         super(ctx, name, emoji, posX, posY, StageConfig.forStage(3));
     }
@@ -24,11 +25,13 @@ public class BossMinion extends SeaEnemy {
     @Override
     protected float hpScale() { return HP_SCALE; }
 
+    /** ลูกน้องบอสโดนผู้เล่นแล้วทำให้สโลว์ */
     @Override
-    protected void onPlayerHit(float dirX, float dirY) {
+    protected void onPlayerHit() {
         ctx.slowPlayer(SLOW_FACTOR, SLOW_MS);
     }
 
+    /** ลูกน้องตายแล้วลดเลือดบอส Kraken ที่ยังมีชีวิตอยู่ตามค่าคงที่ */
     @Override
     protected void onDefeated() {
         java.util.List<SeaEnemy> all = ctx.getEnemies();

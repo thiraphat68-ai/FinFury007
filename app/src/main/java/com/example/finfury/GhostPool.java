@@ -78,6 +78,7 @@ public final class GhostPool {
     private final Interpolator interpolator;
     private int next = 0;
 
+    /** สร้างกองวงกลมเอฟเฟกต์ count ตัวไว้ใช้ซ้ำในพื้นที่ area */
     private GhostPool(FrameLayout area, int count, Interpolator interpolator) {
         this.area = area;
         this.interpolator = interpolator;
@@ -85,6 +86,7 @@ public final class GhostPool {
         for (int i = 0; i < count; i++) items[i] = new Item(area);
     }
 
+    /** ยกเลิกแอนิเมชันและถอดวงกลมทั้งหมดของกองนี้ออกจากจอ */
     private void removeAll() {
         for (Item it : items) {
             it.view.animate().cancel();

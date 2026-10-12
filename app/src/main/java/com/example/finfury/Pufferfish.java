@@ -44,6 +44,7 @@ public class Pufferfish extends Hero {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
 
+    /** สร้างฮีโร่ Pufferfish วิชาเคมี */
     public Pufferfish() {
         super("Pufferfish", "Chemistry");
     }
@@ -146,6 +147,7 @@ public class Pufferfish extends Hero {
         return result;
     }
 
+    /** ขั้นดูด: พองตัวและดูดศัตรูที่เลือกไว้เข้าปากจนถูกกลืน แล้วเริ่มขั้นเคี้ยว */
     private void suckIn(BattleContext ctx, View player, List<SeaEnemy> victims) {
         FrameLayout area = ctx.getGameArea();
         ctx.setSkillLock(true);
@@ -171,6 +173,7 @@ public class Pufferfish extends Hero {
         handler.postDelayed(() -> chew(ctx, player, victims, 0), SUCK_MS);
     }
 
+    /** ขั้นเคี้ยว: ศัตรูในปากโดนดาเมจทุกจังหวะ ครบจังหวะหรือไม่มีใครรอดแล้วเข้าขั้นคาย */
     private void chew(BattleContext ctx, View player, List<SeaEnemy> victims, int tick) {
         if (!ctx.isGameRunning()) return;
 
@@ -198,6 +201,7 @@ public class Pufferfish extends Hero {
         handler.postDelayed(() -> chew(ctx, player, victims, tick + 1), CHEW_INTERVAL_MS);
     }
 
+    /** ขั้นคาย: ยุบตัวกลับ คายศัตรูที่ยังรอดออกไปรอบตัว แล้วปลดล็อกสกิลจบ Ultimate */
     private void spitOut(BattleContext ctx, View player, List<SeaEnemy> victims) {
         // ยุบตัวกลับ แล้วคายตัวที่ยังรอดออกไปคนละทิศรอบตัว
         player.animate().scaleX(1f).scaleY(1f).setDuration(350)

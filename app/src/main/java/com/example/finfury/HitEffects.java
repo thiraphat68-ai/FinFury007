@@ -75,6 +75,7 @@ public final class HitEffects {
         poolArea = area;
     }
 
+    /** ล้างกอง View เอฟเฟกต์ทั้งหมดและยกเลิกจอสั่น (ใช้ตอนผูกกับพื้นที่เกมใหม่) */
     private static void clearPools() {
         for (int i = 0; i < bursts.length; i++) bursts[i] = null;
         for (int i = 0; i < popups.length; i++) {
@@ -102,6 +103,7 @@ public final class HitEffects {
         poolArea = null;
     }
 
+    /** เอฟเฟกต์โดนศัตรู: วงกระแทก ตัวเลขดาเมจลอยขึ้น และจอสั่น (ดาเมจตั้งแต่ 3 ได้เอฟเฟกต์ใหญ่กว่า) */
     public static void impact(BattleContext ctx, View target, int damage) {
         FrameLayout area = ctx.getGameArea();
         if (area == null || target == null) return;
@@ -204,6 +206,7 @@ public final class HitEffects {
         return true;
     }
 
+    /** หยิบเส้นทางเตือนที่ว่างจากกอง (สร้างใหม่ถ้ายังไม่เต็มกอง) */
     private static PathView acquirePath(FrameLayout area) {
         for (PathView p : paths) {
             if (!p.inUse) {
@@ -288,6 +291,7 @@ public final class HitEffects {
         }
     }
 
+    /** แปลงหน่วย dp เป็นพิกเซล */
     private static float dp(Context c, float v) {
         return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, c.getResources().getDisplayMetrics());
     }
@@ -395,6 +399,7 @@ public final class HitEffects {
         shakeAnim.start();
     }
 
+    /** คืนตำแหน่งเป้าหมายที่จอสั่นกลับที่เดิม */
     private static void resetShake() {
         if (shakeTarget != null) {
             shakeTarget.setTranslationX(0f);

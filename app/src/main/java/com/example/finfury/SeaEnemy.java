@@ -31,14 +31,17 @@ public class SeaEnemy {
     /** เปิด/ปิดโหมดโจมตีพร้อมกัน 2 ตัว (เรียกหลัง resetAttackQueue ตอนเริ่มด่าน) */
     public static void setDualAttack(boolean enabled) { dualAttackEnabled = enabled; }
 
+    /** ตัวนี้ถือสิทธิ์โจมตีอยู่หรือไม่ */
     private boolean holdsAttackSlot() {
         return activeAttackerId == enemyId || activeAttackerId2 == enemyId;
     }
 
+    /** ขอสิทธิ์โจมตีได้ไหม (ถือสิทธิ์อยู่แล้ว หรือมีช่องว่าง) */
     private boolean attackSlotAvailable() {
         return holdsAttackSlot() || activeAttackerId == 0 || (dualAttackEnabled && activeAttackerId2 == 0);
     }
 
+    /** ยึดช่องสิทธิ์โจมตีที่ว่างให้ตัวนี้ */
     private void claimAttackSlot() {
         if (holdsAttackSlot()) return;
         if (activeAttackerId == 0) activeAttackerId = enemyId;
@@ -94,6 +97,7 @@ public class SeaEnemy {
         setSlowed(true);
     }
 
+    /** ตั้งสถานะถูกกลืน: ถ้าถูกกลืนให้ยกเลิกการโจมตี ถ้าหลุดแล้วเริ่มนับเวลา AI ใหม่ */
     public void setSwallowed(boolean value) {
         swallowed = value;
         if (value) {
@@ -108,7 +112,6 @@ public class SeaEnemy {
     /** สตันนานตามเวลา: ขยับ/โจมตีไม่ได้ (ต่างจาก swallowed ตรงที่โดนดาเมจ/ผลักถอยได้ตามปกติ) */
     public void stun(long durationMs) {
         stunUntilMs = Math.max(stunUntilMs, System.currentTimeMillis() + durationMs);
-        setStunned(true);
         cancelAttack();
     }
 
@@ -145,11 +148,8 @@ public class SeaEnemy {
     private float aimDirY = 0f;
 
     /** สไตล์การเดินตอนรอโจมตี (ต่างกันตามชนิดศัตรู) */
-    private enum MoveStyle { ORBIT, SIDESTEP, DRIFT, PATROL, KITE, ERRATIC }
+    private enum MoveStyle { ORBIT, SIDESTEP, DRIFT, KITE }
     private MoveStyle moveStyle = MoveStyle.ORBIT;
-    private float wanderX = 0f, wanderY = 0f;
-    private long wanderUntilMs = 0;
-    private static final long APPROACH_BEFORE_ATTACK_MS = 1200;   // ก่อนโจมตีเท่านี้ กลับเข้าประชิดผู้เล่น
 
     private static final float BASE_SPEED = BattleActivity.MAX_SPEED * 0.75f;
     private static final float ORBIT_SPEED_FACTOR = 0.60f;                      // ความเร็วตอนล้อมผู้เล่น = 60% ของความเร็วเดิน (ต้องเร็วพอตามช่องที่หมุน+ซิกแซกทัน)
@@ -171,7 +171,6 @@ public class SeaEnemy {
 
     private static final float WAVE_AMPLITUDE_PX = 110f;   // กระสุนแมงกะพรุนซิกแซกเป็นคลื่น: แกว่งข้างละ 110 px
     private static final float WAVE_LENGTH_PX = 480f;      // หนึ่งรอบคลื่นยาว 480 px
-    private static final float SHOCKWAVE_SPEED = 5000f;   // แรงผลัก: ไกลประมาณ 600 px (จอจำกัดไว้ที่ขอบ)
     private static final int BARRAGE_SHOTS = 15;
     private static final long BARRAGE_GAP_MS = 120;   // เดิม 80 ms ห่างขึ้น 1.5 เท่า
     private static final long JELLY_STUN_MS = 500;
@@ -183,10 +182,12 @@ public class SeaEnemy {
     private final float zigPhase = (float) (Math.random() * Math.PI * 2);   // แต่ละตัวซิกแซกไม่พร้อมกัน
     private final float slotOffset = (float) (Math.random() * 0.4 - 0.2);   // สุ่มมุมเล็กน้อย ไม่ให้ดูเป็นแถวเป๊ะ
 
+    /** สร้างศัตรูด้วยค่าความยากของด่าน 1 */
     public SeaEnemy(BattleContext ctx, String name, String emoji, float posX, float posY) {
         this(ctx, name, emoji, posX, posY, StageConfig.forStage(1));
     }
 
+    /** สร้างศัตรู: ตั้งสเตตัสตามชนิด ปรับตามความยากของด่าน แล้วสร้างวิวบนจอ */
     public SeaEnemy(BattleContext ctx, String name, String emoji, float posX, float posY, StageConfig cfg) {
         this.ctx = ctx;
         this.name = name;
@@ -199,8 +200,8 @@ public class SeaEnemy {
         createView(posX, posY);
     }
 
-    /** เต่า (ด่าน 2-4): โดนแล้วสโลว์ 50% นาน 2 วิ / ดาวทะเล (ด่าน 2-4): โดนแล้วผลักผู้เล่นไปตามทิศพุ่ง */
-    protected void onPlayerHit(float dirX, float dirY) {
+    /** เต่า (ด่าน 2-4): โดนแล้วสโลว์ 50% นาน 2 วิ */
+    protected void onPlayerHit() {
         if ("Jellyfish".equals(name)) {   // ทุกด่าน: กระสุนแมงกะพรุนทำให้สตัน 0.5 วินาที
             ctx.stunPlayer(JELLY_STUN_MS);
             return;
@@ -208,12 +209,10 @@ public class SeaEnemy {
         if (cfg.stage < 2 || cfg.stage > 4) return;
         if ("Turtle".equals(name)) {
             ctx.slowPlayer(0.5f, 2000);
-        } else if ("Starfish".equals(name)) {
-            ctx.knockbackPlayer(dirX, dirY, 2000f);
         }
     }
 
-    /** เอาศัตรูออกจากฉากเงียบๆ (ไม่นับว่าถูกกำจัด: ไม่มีคลื่นกระแทก ไม่ลดเลือดบอส ไม่เช็กชนะ) */
+    /** เอาศัตรูออกจากฉากเงียบๆ (ไม่นับว่าถูกกำจัด: ไม่ลดเลือดบอส ไม่เช็กชนะ) */
     public void removeSilently() {
         if (!isAlive) return;
         isAlive = false;
@@ -241,15 +240,14 @@ public class SeaEnemy {
 
     /** จุดที่ศัตรูจะเดินไปหาตอนรอโจมตี ตามสไตล์การเดิน */
     private float[] computeHoldPoint(float targetX, float targetY, float curX, float curY,
-                                     float distance, float tSec, long now) {
+                                     float distance, float tSec) {
         float mid = (holdMinDistance + holdMaxDistance) / 2f;
         float baseAngle = (float) (slotAngle() + ORBIT_ROTATE_RAD_PER_S * tSec);
-        boolean approaching = timeInOrbitMs >= attackIntervalMs - WINDUP_MS - APPROACH_BEFORE_ATTACK_MS;
 
         float angle = baseAngle;
         float dist = mid;
         switch (moveStyle) {
-            case SIDESTEP:   // ปู: ก้าวข้างไปมาแทนการวนรอบ
+            case SIDESTEP:   // ปู/เต่า/ดาวทะเล: ก้าวข้างไปมาแทนการวนรอบ
                 angle = (float) slotAngle() + (float) Math.sin(tSec * 1.1f + zigPhase) * 0.9f;
                 dist = mid + triangleWave(tSec * 1.6f + zigPhase) * 25f;
                 break;
@@ -269,14 +267,6 @@ public class SeaEnemy {
                 dist = mid + triangleWave(tSec * ZIGZAG_FREQ + zigPhase) * 25f;
                 break;
             }
-            case PATROL:     // เต่า: ตระเวนไปจุดสุ่มบนแมพ แล้วค่อยกลับมาหาผู้เล่นตอนใกล้โจมตี
-            case ERRATIC: {  // ดาวทะเล: เปลี่ยนจุดสุ่มรอบผู้เล่นถี่ๆ ทิศไม่แน่นอน
-                if (approaching) break;
-                if (now >= wanderUntilMs || Math.hypot(wanderX - curX, wanderY - curY) < 40f) {
-                    pickWanderPoint(targetX, targetY, now);
-                }
-                return new float[]{wanderX, wanderY};
-            }
             case ORBIT:
             default: {
                 float zig = triangleWave(tSec * ZIGZAG_FREQ + zigPhase);
@@ -288,65 +278,9 @@ public class SeaEnemy {
         return new float[]{targetX + (float) Math.cos(angle) * dist, targetY + (float) Math.sin(angle) * dist};
     }
 
-    private void pickWanderPoint(float targetX, float targetY, long now) {
-        View area = containerView != null ? (View) containerView.getParent() : null;
-        float aw = area != null && area.getWidth() > 0 ? area.getWidth() : 1000f;
-        float ah = area != null && area.getHeight() > 0 ? area.getHeight() : 500f;
-        float maxX = Math.max(0f, aw - (containerView != null ? containerView.getWidth() : 0));
-        float maxY = Math.max(0f, ah - (containerView != null ? containerView.getHeight() : 0));
-        if (moveStyle == MoveStyle.ERRATIC) {
-            double a = Math.random() * Math.PI * 2;
-            float r = holdMinDistance + (float) Math.random() * (holdMaxDistance - holdMinDistance + 150f);
-            wanderX = targetX + (float) Math.cos(a) * r;
-            wanderY = targetY + (float) Math.sin(a) * r;
-            wanderUntilMs = now + 900 + (long) (Math.random() * 1200);
-        } else {
-            wanderX = (float) Math.random() * maxX;
-            wanderY = (float) Math.random() * maxY;
-            wanderUntilMs = now + 2500 + (long) (Math.random() * 2500);
-        }
-        wanderX = Math.max(0f, Math.min(maxX, wanderX));
-        wanderY = Math.max(0f, Math.min(maxY, wanderY));
-    }
-
     /** คลื่นสามเหลี่ยม -1..1 (เส้นตรงสลับขึ้น-ลง = ซิกแซกคม ต่างจากไซน์ที่โค้งนุ่ม) */
     private static float triangleWave(float x) {
         return (float) (2.0 / Math.PI * Math.asin(Math.sin(x)));
-    }
-
-    /** ตายแล้วปล่อยคลื่นกระแทก: ผลักผู้เล่นออกจากจุดที่ตายไปทางขอบจอ ไม่มีดาเมจ */
-    private void deathShockwave() {
-        View pv = ctx.getPlayerContainer();
-        FrameLayout fx = ctx.getGameArea();
-        if (pv == null || fx == null || !ctx.isGameRunning()) return;
-
-        float ecx = containerView.getX() + containerView.getWidth() / 2f;
-        float ecy = containerView.getY() + containerView.getHeight() / 2f;
-        float dx = pv.getX() + pv.getWidth() / 2f - ecx;
-        float dy = pv.getY() + pv.getHeight() / 2f - ecy;
-        float len = (float) Math.hypot(dx, dy);
-        if (len < 1f) {   // ทับกันพอดี: สุ่มทิศ
-            double a = Math.random() * Math.PI * 2;
-            dx = (float) Math.cos(a);
-            dy = (float) Math.sin(a);
-            len = 1f;
-        }
-        ctx.knockbackPlayer(dx / len, dy / len, SHOCKWAVE_SPEED);
-
-        // วงคลื่นขยายออกจากจุดที่ตาย
-        View ring = new View(ctx.getContext());
-        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-        bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-        bg.setColor(Color.TRANSPARENT);
-        bg.setStroke(10, Color.parseColor("#B3FFFFFF"));
-        ring.setBackground(bg);
-        final int size = 200;
-        ring.setLayoutParams(new FrameLayout.LayoutParams(size, size));
-        ring.setX(ecx - size / 2f);
-        ring.setY(ecy - size / 2f);
-        fx.addView(ring);
-        ring.animate().scaleX(6f).scaleY(6f).alpha(0f).setDuration(450)
-                .withEndAction(() -> fx.removeView(ring)).start();
     }
 
     /** ตัวคูณดาเมจ/เลือดเพิ่มเติมจากค่าของด่าน (ลูกน้องบอสใช้) */
@@ -382,6 +316,7 @@ public class SeaEnemy {
     /** จำนวนชีวิตที่เหลือ (ศัตรูปกติมี 1) */
     public int livesLeft() { return 1; }
 
+    /** ตั้งสเตตัสพื้นฐาน (เลือด ความเร็ว ระยะรอ ดาเมจ ชนิดการโจมตี สไตล์เดิน) ตามชนิดศัตรูจากอีโมจิหรือชื่อ */
     protected void configureEnemyStats() {
         if (emoji.contains("🦀") || name.contains("ปู")) {
             // ปูซ่า: เลือดเยอะ ช้า
@@ -410,7 +345,7 @@ public class SeaEnemy {
             holdMinDistance = 240f;
             holdMaxDistance = 340f;
             attackDamage = 5;
-            moveStyle = MoveStyle.PATROL;
+            moveStyle = MoveStyle.SIDESTEP;
         } else if (emoji.contains("🪼") || name.toLowerCase(Locale.US).contains("jellyfish") || name.contains("กะพรุน")) {
             // แมงกะพรุน: ความเร็วปกติ รักษาระยะห่าง 240px
             maxHp = 9;
@@ -429,10 +364,11 @@ public class SeaEnemy {
             holdMinDistance = 200f;
             holdMaxDistance = 320f;
             attackDamage = 5;
-            moveStyle = MoveStyle.ERRATIC;
+            moveStyle = MoveStyle.SIDESTEP;
         }
     }
 
+    /** สร้างวิวของศัตรู (ชื่อ หลอดเลือด ตัวเลข รูป และไอคอนสถานะ) แล้ววางลงในพื้นที่เกม */
     private void createView(float posX, float posY) {
         LinearLayout layout = new LinearLayout(ctx.getContext());
         layout.setLayoutParams(new FrameLayout.LayoutParams(
@@ -489,12 +425,6 @@ public class SeaEnemy {
         statusRow.setClipChildren(false);
         statusRow.setLayoutParams(new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, 0));
-        iconCharged = makeStatusIcon("⚡");
-        iconSlowed = makeStatusIcon("🐌");
-        iconStunned = makeStatusIcon("💫");
-        statusRow.addView(iconCharged);
-        statusRow.addView(iconSlowed);
-        statusRow.addView(iconStunned);
 
         layout.addView(statusRow);
         layout.addView(txtName);
@@ -517,8 +447,8 @@ public class SeaEnemy {
     private static final int STATUS_ICON_PX = 36;
     private TextView iconCharged;
     private TextView iconSlowed;
-    private TextView iconStunned;
 
+    /** สร้างไอคอนสถานะอีโมจิเหนือหัวศัตรู (ซ่อนไว้ก่อน) */
     private TextView makeStatusIcon(String emojiText) {
         TextView tv = new TextView(ctx.getContext());
         tv.setText(emojiText);
@@ -530,6 +460,7 @@ public class SeaEnemy {
         return tv;
     }
 
+    /** แสดง/ซ่อนไอคอนสถานะ */
     private static void setIcon(TextView icon, boolean visible) {
         if (icon != null) icon.setVisibility(visible ? View.VISIBLE : View.INVISIBLE);
     }
@@ -539,15 +470,14 @@ public class SeaEnemy {
 
     /** ช้าลง (ปกติไม่ต้องเรียกเอง applySlow จะโชว์ให้ และซ่อนเมื่อหมดเวลา) */
     public void setSlowed(boolean value) { setIcon(iconSlowed, value); }
-
-    /** สตัน (ปกติไม่ต้องเรียกเอง stun() จะโชว์ให้ และซ่อนเมื่อหมดเวลา) */
-    public void setStunned(boolean value) { setIcon(iconStunned, value); }
-
+    
+    
+    /** อัปเดตไอคอนช้าลง/สตันตามเวลาที่เหลือ */
     private void refreshStatusIcons(long now) {
         setSlowed(now < slowUntilMs);
-        setStunned(now < stunUntilMs);
     }
 
+    /** อัปเดตศัตรูทุกเฟรม: เดินรอตามสไตล์ ขอสิทธิ์โจมตี เล็งและพุ่ง/ยิง เว้นระยะจากพวกเดียวกัน และเล่นแอนิเมชัน (targetX, targetY = ตำแหน่งผู้เล่น) */
     public void updateAI(float targetX, float targetY) {
         if (!isAlive || swallowed || containerView == null || !ctx.isGameRunning() || ctx.isGamePaused()) return;
 
@@ -579,12 +509,11 @@ public class SeaEnemy {
             case ORBIT_AND_WAIT: {
                 timeInOrbitMs += dtMs;
 
-                // 1. เดินตามสไตล์ของแต่ละชนิด (ปู=ก้าวข้าง, แมงกะพรุน=ลอยเป็นคลื่น, เต่า=ตระเวนสุ่ม,
-                // หมึก=ถอยเว้นระยะ, ดาวทะเล=สุ่มเปลี่ยนจุดไม่แน่นอน) แล้วค่อยกลับมาประชิดตอนใกล้ถึงเวลาโจมตี
+                // 1. เดินตามสไตล์ของแต่ละชนิด (ปู/เต่า/ดาวทะเล=ก้าวข้าง, แมงกะพรุน=ลอยเป็นคลื่น,
+                // หมึก=ถอยเว้นระยะ)
                 float tSec = now / 1000f;
-                float[] hold = computeHoldPoint(targetX, targetY, currentX, currentY, distance, tSec, now);
-                float orbitSpeed = (distance > holdMaxDistance + 60f && moveStyle != MoveStyle.PATROL
-                        && moveStyle != MoveStyle.ERRATIC) ? moveSpeed : moveSpeed * ORBIT_SPEED_FACTOR;
+                float[] hold = computeHoldPoint(targetX, targetY, currentX, currentY, distance, tSec);
+                float orbitSpeed = distance > holdMaxDistance + 60f ? moveSpeed : moveSpeed * ORBIT_SPEED_FACTOR;
                 if (moveStyle == MoveStyle.KITE && distance < holdMinDistance) orbitSpeed = moveSpeed;   // ถอยหนีเต็มสปีด
 
                 float hdx = hold[0] - currentX;
@@ -672,7 +601,7 @@ public class SeaEnemy {
                     ctx.damagePlayer(attackDamage);
                     HitEffects.playerHit(ctx, ctx.getPlayerContainer(), attackDamage);
                     hasHitPlayerThisDash = true;
-                    if (ddist > 0.001f) onPlayerHit(ddx / ddist, ddy / ddist);
+                    if (ddist > 0.001f) onPlayerHit();
                 }
 
                 // เมื่อพุ่งถึงจุดหมายด้านหลังผู้เล่นเรียบร้อย ให้กลับเข้าสู่สถานะวนรอบรอ
@@ -747,11 +676,12 @@ public class SeaEnemy {
         return true;
     }
 
+    /** ปล่อยการโจมตีระยะไกลตามทิศที่ล็อกไว้ (แมงกะพรุน = รัวลำพลัง หมึก = พ่นกรวย) */
     private void fireRangedAttack() {
         float ecx = containerView.getX() + containerView.getWidth() / 2f;
         float ecy = containerView.getY() + containerView.getHeight() / 2f;
         final float ax = aimDirX, ay = aimDirY;
-        Runnable onHit = () -> onPlayerHit(ax, ay);
+        Runnable onHit = () -> onPlayerHit();
         if (attackType == AttackType.LINE_SHOT) {
             float speed = BASE_SPEED * speedMultiplier * LINE_SHOT_SPEED_FACTOR;
             FrameLayout area = ctx.getGameArea();
@@ -845,6 +775,7 @@ public class SeaEnemy {
         }
     }
 
+    /** เอาเส้นทาง/พื้นที่เตือนการโจมตีออกจากจอ */
     private void clearAttackPath() {
         if (attackPathView != null) {
             // เส้นทางพุ่งมาจากกองที่ใช้ซ้ำ: คืนเข้ากอง (ซ่อน) ส่วนวิวอื่น (เช่น กรวยหมึก) ลบออกตามเดิม
@@ -858,6 +789,7 @@ public class SeaEnemy {
         }
     }
 
+    /** ระยะจากจุด (px, py) ถึงเส้นตรงช่วง (ax, ay)-(bx, by) */
     private static float distanceToSegment(float px, float py, float ax, float ay, float bx, float by) {
         float abx = bx - ax, aby = by - ay;
         float len2 = abx * abx + aby * aby;
@@ -868,6 +800,7 @@ public class SeaEnemy {
     /** โบนัสดาเมจจากไอเทม (BattleActivity เซ็ตทุกเฟรม) บวกเฉพาะการโดนครั้งเดียว ไม่บวกดาเมจต่อเนื่องที่ knockback=false */
     public static int playerDamageBonus = 0;
 
+    /** รับดาเมจจากผู้เล่น (บวกโบนัสจากไอเทม) พร้อมผลักถอยปกติ */
     public void takeDamage(int damage) {
         takeDamage(damage + playerDamageBonus, true);
     }
@@ -937,7 +870,6 @@ public class SeaEnemy {
                     }).start();
 
             if (!(this instanceof KrakenBoss)) {
-                deathShockwave();
                 ctx.dropItemAt(containerView.getX() + containerView.getWidth() / 2f,
                         containerView.getY() + containerView.getHeight() / 2f, false);
             }

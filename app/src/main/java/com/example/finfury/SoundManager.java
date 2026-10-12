@@ -126,6 +126,7 @@ public final class SoundManager {
     // เสียงเอฟเฟกต์
     // =========================================================
 
+    /** เล่นเสียงเอฟเฟกต์ด้วยความเร็วปกติ */
     public static void play(Sfx sfx) {
         play(sfx, 1f);
     }
@@ -205,6 +206,7 @@ public final class SoundManager {
         currentMusicName = null;
     }
 
+    /** หยุดและปล่อยตัวเล่นเพลงพื้นหลังที่ใช้อยู่ */
     private static void releaseMusicPlayer() {
         if (musicPlayer != null) {
             try {
