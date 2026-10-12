@@ -112,7 +112,6 @@ public class SeaEnemy {
     /** สตันนานตามเวลา: ขยับ/โจมตีไม่ได้ (ต่างจาก swallowed ตรงที่โดนดาเมจ/ผลักถอยได้ตามปกติ) */
     public void stun(long durationMs) {
         stunUntilMs = Math.max(stunUntilMs, System.currentTimeMillis() + durationMs);
-        setStunned(true);
         cancelAttack();
     }
 
@@ -426,12 +425,6 @@ public class SeaEnemy {
         statusRow.setClipChildren(false);
         statusRow.setLayoutParams(new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, 0));
-        iconCharged = makeStatusIcon("⚡");
-        iconSlowed = makeStatusIcon("🐌");
-        iconStunned = makeStatusIcon("💫");
-        statusRow.addView(iconCharged);
-        statusRow.addView(iconSlowed);
-        statusRow.addView(iconStunned);
 
         layout.addView(statusRow);
         layout.addView(txtName);
@@ -454,7 +447,6 @@ public class SeaEnemy {
     private static final int STATUS_ICON_PX = 36;
     private TextView iconCharged;
     private TextView iconSlowed;
-    private TextView iconStunned;
 
     /** สร้างไอคอนสถานะอีโมจิเหนือหัวศัตรู (ซ่อนไว้ก่อน) */
     private TextView makeStatusIcon(String emojiText) {
@@ -478,14 +470,11 @@ public class SeaEnemy {
 
     /** ช้าลง (ปกติไม่ต้องเรียกเอง applySlow จะโชว์ให้ และซ่อนเมื่อหมดเวลา) */
     public void setSlowed(boolean value) { setIcon(iconSlowed, value); }
-
-    /** สตัน (ปกติไม่ต้องเรียกเอง stun() จะโชว์ให้ และซ่อนเมื่อหมดเวลา) */
-    public void setStunned(boolean value) { setIcon(iconStunned, value); }
-
+    
+    
     /** อัปเดตไอคอนช้าลง/สตันตามเวลาที่เหลือ */
     private void refreshStatusIcons(long now) {
         setSlowed(now < slowUntilMs);
-        setStunned(now < stunUntilMs);
     }
 
     /** อัปเดตศัตรูทุกเฟรม: เดินรอตามสไตล์ ขอสิทธิ์โจมตี เล็งและพุ่ง/ยิง เว้นระยะจากพวกเดียวกัน และเล่นแอนิเมชัน (targetX, targetY = ตำแหน่งผู้เล่น) */
